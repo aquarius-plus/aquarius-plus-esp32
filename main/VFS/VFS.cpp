@@ -1,35 +1,36 @@
-#include "vfs.h"
+// This file is shared between the emulator and ESP32. It needs to be manually copied when changed.
+#include "VFS.h"
 
-int VFS::open(uint8_t flags, const std::string &path) {
+int VFS::open(uint8_t, const std::string &) {
     return ERR_OTHER;
 }
-int VFS::close(int fd) {
+int VFS::close(int) {
     return ERR_OTHER;
 }
-int VFS::read(int fd, size_t size, void *buf) {
+int VFS::read(int, size_t, void *) {
     return ERR_OTHER;
 }
-int VFS::write(int fd, size_t size, const void *buf) {
+int VFS::write(int, size_t, const void *) {
     return ERR_OTHER;
 }
-int VFS::seek(int fd, size_t offset) {
+int VFS::seek(int, size_t) {
     return ERR_OTHER;
 }
-int VFS::tell(int fd) {
+int VFS::tell(int) {
     return ERR_OTHER;
 }
-DirEnumCtx VFS::direnum(const std::string &path) {
+DirEnumCtx VFS::direnum(const std::string &) {
     return nullptr;
 }
-int VFS::delete_(const std::string &path) {
+int VFS::delete_(const std::string &) {
     return ERR_OTHER;
 }
-int VFS::rename(const std::string &path_old, const std::string &path_new) {
+int VFS::rename(const std::string &, const std::string &) {
     return ERR_OTHER;
 }
-int VFS::mkdir(const std::string &path) {
+int VFS::mkdir(const std::string &) {
     return ERR_OTHER;
 }
-int VFS::stat(const std::string &path, struct stat *st) {
+int VFS::stat(const std::string &, struct stat *) {
     return ERR_OTHER;
 }

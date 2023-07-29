@@ -1,3 +1,4 @@
+// This file is shared between the emulator and ESP32. It needs to be manually copied when changed.
 #pragma once
 
 #include "Common.h"
@@ -23,7 +24,5 @@ public:
     int stat(const std::string &path, struct stat *st) override;
 
 private:
-    int dir_idx;
-    int file_offset;
-    int file_idx;
+    int fileOffset;
 };

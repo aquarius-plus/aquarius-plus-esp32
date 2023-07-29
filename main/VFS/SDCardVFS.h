@@ -1,9 +1,12 @@
+// This file is shared between the emulator and ESP32. It needs to be manually copied when changed.
 #pragma once
 
 #include "Common.h"
 #include "VFS.h"
 
-#define MOUNT_POINT "/sdcard"
+#ifndef EMULATOR
+#    define MOUNT_POINT "/sdcard"
+#endif
 
 class SDCardVFS : public VFS {
     SDCardVFS();

@@ -1,7 +1,7 @@
+// This file is shared between the emulator and ESP32. It needs to be manually copied when changed.
 #pragma once
 
 #include "Common.h"
-#include <sys/stat.h>
 
 enum {
     ERR_NOT_FOUND     = -1, // File / directory not found
