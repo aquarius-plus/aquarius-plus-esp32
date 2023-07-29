@@ -1,10 +1,18 @@
+// This file is shared between the emulator and ESP32. It needs to be manually copied when changed.
 #include "AqKeyboard.h"
 #include "AqKeyboardDefs.h"
-#include "FPGA.h"
-#include <esp_system.h>
-#include "USBHost.h"
+#ifdef EMULATOR
+#    include <SDL.h>
+#    include "EmuState.h"
+#else
+#    include "FPGA.h"
+#    include <esp_system.h>
+#    include "USBHost.h"
+#endif
 
+#ifndef EMULATOR
 static const char *TAG = "keyboard";
+#endif
 
 enum {
     NUM_LOCK    = (1 << 0),
@@ -24,112 +32,113 @@ AqKeyboard &AqKeyboard::instance() {
 }
 
 void AqKeyboard::init() {
+#ifndef EMULATOR
     mutex = xSemaphoreCreateRecursiveMutex();
+#endif
 }
 
-void AqKeyboard::keyUp(int key) {
+void AqKeyboard::_keyUp(int key) {
     keybMatrix[key / 6] |= (1 << (key % 6));
 }
-
-void AqKeyboard::keyDown(int key) {
+void AqKeyboard::_keyDown(int key) {
     keybMatrix[key / 6] &= ~(1 << (key % 6));
 }
-
-void AqKeyboard::keyDown(int key, bool shift) {
-    keyDown(key);
+void AqKeyboard::_keyDown(int key, bool shift) {
+    _keyDown(key);
     if (shift) {
-        keyDown(KEY_SHIFT);
+        _keyDown(KEY_SHIFT);
     } else {
-        keyUp(KEY_SHIFT);
+        _keyUp(KEY_SHIFT);
     }
 }
 
-void AqKeyboard::handleScancode(unsigned scancode, bool keydown) {
+void AqKeyboard::handleScancode(unsigned scanCode, bool keyDown) {
+#ifndef EMULATOR
     RecursiveMutexLock lock(mutex);
-
+#endif
     uint8_t ledStatusNext = ledStatus;
 
     // Hand controller emulation
-    handController(scancode, keydown);
+    handController(scanCode, keyDown);
 
-    if (keydown && scancode == SDL_SCANCODE_CAPSLOCK) {
+    if (keyDown && scanCode == SCANCODE_CAPSLOCK) {
         ledStatusNext ^= CAPS_LOCK;
     }
-    if (keydown && scancode == SDL_SCANCODE_NUMLOCKCLEAR) {
+    if (keyDown && scanCode == SCANCODE_NUMLOCKCLEAR) {
         ledStatusNext ^= NUM_LOCK;
     }
-    if (keydown && scancode == SDL_SCANCODE_SCROLLLOCK) {
+    if (keyDown && scanCode == SCANCODE_SCROLLLOCK) {
         ledStatusNext ^= SCROLL_LOCK;
     }
 
     // Keep track of pressed modifier keys
-    if (scancode == SDL_SCANCODE_LSHIFT)
-        modifiers = (modifiers & ~KMOD_LSHIFT) | (keydown ? KMOD_LSHIFT : 0);
-    if (scancode == SDL_SCANCODE_RSHIFT)
-        modifiers = (modifiers & ~KMOD_RSHIFT) | (keydown ? KMOD_RSHIFT : 0);
-    if (scancode == SDL_SCANCODE_LCTRL)
-        modifiers = (modifiers & ~KMOD_LCTRL) | (keydown ? KMOD_LCTRL : 0);
-    if (scancode == SDL_SCANCODE_RCTRL)
-        modifiers = (modifiers & ~KMOD_RCTRL) | (keydown ? KMOD_RCTRL : 0);
-    if (scancode == SDL_SCANCODE_LALT)
-        modifiers = (modifiers & ~KMOD_LALT) | (keydown ? KMOD_LALT : 0);
-    if (scancode == SDL_SCANCODE_RALT)
-        modifiers = (modifiers & ~KMOD_RALT) | (keydown ? KMOD_RALT : 0);
-    if (scancode == SDL_SCANCODE_LGUI)
-        modifiers = (modifiers & ~KMOD_LGUI) | (keydown ? KMOD_LGUI : 0);
-    if (scancode == SDL_SCANCODE_RGUI)
-        modifiers = (modifiers & ~KMOD_RGUI) | (keydown ? KMOD_RGUI : 0);
+    if (scanCode == SCANCODE_LSHIFT)
+        modifiers = (modifiers & ~KEYMOD_LSHIFT) | (keyDown ? KEYMOD_LSHIFT : 0);
+    if (scanCode == SCANCODE_RSHIFT)
+        modifiers = (modifiers & ~KEYMOD_RSHIFT) | (keyDown ? KEYMOD_RSHIFT : 0);
+    if (scanCode == SCANCODE_LCTRL)
+        modifiers = (modifiers & ~KEYMOD_LCTRL) | (keyDown ? KEYMOD_LCTRL : 0);
+    if (scanCode == SCANCODE_RCTRL)
+        modifiers = (modifiers & ~KEYMOD_RCTRL) | (keyDown ? KEYMOD_RCTRL : 0);
+    if (scanCode == SCANCODE_LALT)
+        modifiers = (modifiers & ~KEYMOD_LALT) | (keyDown ? KEYMOD_LALT : 0);
+    if (scanCode == SCANCODE_RALT)
+        modifiers = (modifiers & ~KEYMOD_RALT) | (keyDown ? KEYMOD_RALT : 0);
+    if (scanCode == SCANCODE_LGUI)
+        modifiers = (modifiers & ~KEYMOD_LGUI) | (keyDown ? KEYMOD_LGUI : 0);
+    if (scanCode == SCANCODE_RGUI)
+        modifiers = (modifiers & ~KEYMOD_RGUI) | (keyDown ? KEYMOD_RGUI : 0);
 
-    bool ctrlPressed  = (modifiers & (KMOD_LCTRL | KMOD_RCTRL)) != 0;
-    bool altPressed   = (modifiers & (KMOD_LALT | KMOD_RALT)) != 0;
-    bool shiftPressed = (modifiers & (KMOD_LSHIFT | KMOD_RSHIFT)) != 0;
-    bool guiPressed   = (modifiers & (KMOD_LGUI | KMOD_RGUI)) != 0;
+    bool ctrlPressed  = (modifiers & (KEYMOD_LCTRL | KEYMOD_RCTRL)) != 0;
+    bool altPressed   = (modifiers & (KEYMOD_LALT | KEYMOD_RALT)) != 0;
+    bool shiftPressed = (modifiers & (KEYMOD_LSHIFT | KEYMOD_RSHIFT)) != 0;
+    bool guiPressed   = (modifiers & (KEYMOD_LGUI | KEYMOD_RGUI)) != 0;
 
     // Handle caps lock
-    if ((ledStatus & CAPS_LOCK) && !ctrlPressed && !altPressed && !guiPressed && scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z) {
+    if ((ledStatus & CAPS_LOCK) && !ctrlPressed && !altPressed && !guiPressed && scanCode >= SCANCODE_A && scanCode <= SCANCODE_Z) {
         shiftPressed = !shiftPressed;
     }
 
     // Handle keypad
     if (!ctrlPressed && !altPressed && !shiftPressed && !guiPressed) {
-        switch (scancode) {
-            case SDL_SCANCODE_KP_DIVIDE: scancode = SDL_SCANCODE_SLASH; break;
-            case SDL_SCANCODE_KP_MULTIPLY:
-                scancode     = SDL_SCANCODE_8;
+        switch (scanCode) {
+            case SCANCODE_KP_DIVIDE: scanCode = SCANCODE_SLASH; break;
+            case SCANCODE_KP_MULTIPLY:
+                scanCode     = SCANCODE_8;
                 shiftPressed = true;
                 break;
-            case SDL_SCANCODE_KP_MINUS: scancode = SDL_SCANCODE_MINUS; break;
-            case SDL_SCANCODE_KP_PLUS:
-                scancode     = SDL_SCANCODE_EQUALS;
+            case SCANCODE_KP_MINUS: scanCode = SCANCODE_MINUS; break;
+            case SCANCODE_KP_PLUS:
+                scanCode     = SCANCODE_EQUALS;
                 shiftPressed = true;
                 break;
-            case SDL_SCANCODE_KP_ENTER: scancode = SDL_SCANCODE_RETURN; break;
+            case SCANCODE_KP_ENTER: scanCode = SCANCODE_RETURN; break;
         }
 
         // Handle num lock
         if (ledStatus & NUM_LOCK) {
-            switch (scancode) {
-                case SDL_SCANCODE_KP_1: scancode = SDL_SCANCODE_1; break;
-                case SDL_SCANCODE_KP_2: scancode = SDL_SCANCODE_2; break;
-                case SDL_SCANCODE_KP_3: scancode = SDL_SCANCODE_3; break;
-                case SDL_SCANCODE_KP_4: scancode = SDL_SCANCODE_4; break;
-                case SDL_SCANCODE_KP_5: scancode = SDL_SCANCODE_5; break;
-                case SDL_SCANCODE_KP_6: scancode = SDL_SCANCODE_6; break;
-                case SDL_SCANCODE_KP_7: scancode = SDL_SCANCODE_7; break;
-                case SDL_SCANCODE_KP_8: scancode = SDL_SCANCODE_8; break;
-                case SDL_SCANCODE_KP_9: scancode = SDL_SCANCODE_9; break;
-                case SDL_SCANCODE_KP_0: scancode = SDL_SCANCODE_0; break;
-                case SDL_SCANCODE_KP_PERIOD: scancode = SDL_SCANCODE_PERIOD; break;
+            switch (scanCode) {
+                case SCANCODE_KP_1: scanCode = SCANCODE_1; break;
+                case SCANCODE_KP_2: scanCode = SCANCODE_2; break;
+                case SCANCODE_KP_3: scanCode = SCANCODE_3; break;
+                case SCANCODE_KP_4: scanCode = SCANCODE_4; break;
+                case SCANCODE_KP_5: scanCode = SCANCODE_5; break;
+                case SCANCODE_KP_6: scanCode = SCANCODE_6; break;
+                case SCANCODE_KP_7: scanCode = SCANCODE_7; break;
+                case SCANCODE_KP_8: scanCode = SCANCODE_8; break;
+                case SCANCODE_KP_9: scanCode = SCANCODE_9; break;
+                case SCANCODE_KP_0: scanCode = SCANCODE_0; break;
+                case SCANCODE_KP_PERIOD: scanCode = SCANCODE_PERIOD; break;
             }
         }
     }
 
     // Keep track of pressed keys
-    if (scancode < 64) {
-        if (keydown) {
-            pressedKeys[scancode / 8] |= 1 << (scancode & 7);
+    if (scanCode < 64) {
+        if (keyDown) {
+            pressedKeys[scanCode / 8] |= 1 << (scanCode & 7);
         } else {
-            pressedKeys[scancode / 8] &= ~(1 << (scancode & 7));
+            pressedKeys[scanCode / 8] &= ~(1 << (scanCode & 7));
         }
     }
 
@@ -157,18 +166,20 @@ void AqKeyboard::handleScancode(unsigned scancode, bool keydown) {
 
     // Set keyboard state based on currently pressed keys
     if (ctrlPressed)
-        keyDown(KEY_CTRL);
+        _keyDown(KEY_CTRL);
     if (shiftPressed)
-        keyDown(KEY_SHIFT);
+        _keyDown(KEY_SHIFT);
 
     for (int i = 0; i < 64; i++) {
         if (pressedKeys[i / 8] & (1 << (i & 7))) {
             switch (i) {
-                case SDL_SCANCODE_ESCAPE:
+                case SCANCODE_ESCAPE:
+#ifndef EMULATOR
                     if (ctrlPressed && shiftPressed) {
                         // CTRL-SHIFT-ESCAPE -> reset ESP32 (somewhat equivalent to power cycle)
                         esp_restart();
                     }
+#endif
 
                     if (waitAllReleased)
                         break;
@@ -176,117 +187,121 @@ void AqKeyboard::handleScancode(unsigned scancode, bool keydown) {
                     if (ctrlPressed) {
                         // CTRL-ESCAPE -> reset
                         waitAllReleased = true;
+#ifdef EMULATOR
+                        reset();
+#else
                         FPGA::instance().aqpReset();
+#endif
                     } else {
                         // ESCAPE -> CTRL-C
-                        keyDown(KEY_CTRL);
-                        keyDown(KEY_C);
+                        _keyDown(KEY_CTRL);
+                        _keyDown(KEY_C);
                     }
                     break;
 
-                case SDL_SCANCODE_RETURN:
-                    keyDown(KEY_RETURN, shiftPressed);
+                case SCANCODE_RETURN:
+                    _keyDown(KEY_RETURN, shiftPressed);
                     break;
 
-                case SDL_SCANCODE_1: keyDown(KEY_1, shiftPressed); break;
-                case SDL_SCANCODE_2:
+                case SCANCODE_1: _keyDown(KEY_1, shiftPressed); break;
+                case SCANCODE_2:
                     if (!shiftPressed)
-                        keyDown(KEY_2, false);
+                        _keyDown(KEY_2, false);
                     else
-                        keyDown(KEY_SEMICOLON, true);
+                        _keyDown(KEY_SEMICOLON, true);
                     break;
-                case SDL_SCANCODE_3: keyDown(KEY_3, shiftPressed); break;
-                case SDL_SCANCODE_4: keyDown(KEY_4, shiftPressed); break;
-                case SDL_SCANCODE_5: keyDown(KEY_5, shiftPressed); break;
-                case SDL_SCANCODE_6:
+                case SCANCODE_3: _keyDown(KEY_3, shiftPressed); break;
+                case SCANCODE_4: _keyDown(KEY_4, shiftPressed); break;
+                case SCANCODE_5: _keyDown(KEY_5, shiftPressed); break;
+                case SCANCODE_6:
                     if (!shiftPressed)
-                        keyDown(KEY_6, false);
+                        _keyDown(KEY_6, false);
                     else
-                        keyDown(KEY_SLASH, true);
+                        _keyDown(KEY_SLASH, true);
                     break;
-                case SDL_SCANCODE_7:
+                case SCANCODE_7:
                     if (!shiftPressed)
-                        keyDown(KEY_7, false);
+                        _keyDown(KEY_7, false);
                     else
-                        keyDown(KEY_6, true);
+                        _keyDown(KEY_6, true);
                     break;
-                case SDL_SCANCODE_8:
+                case SCANCODE_8:
                     if (!shiftPressed)
-                        keyDown(KEY_8, false);
+                        _keyDown(KEY_8, false);
                     else
-                        keyDown(KEY_COLON, true);
+                        _keyDown(KEY_COLON, true);
                     break;
-                case SDL_SCANCODE_9:
+                case SCANCODE_9:
                     if (!shiftPressed)
-                        keyDown(KEY_9, false);
+                        _keyDown(KEY_9, false);
                     else
-                        keyDown(KEY_8, true);
+                        _keyDown(KEY_8, true);
                     break;
-                case SDL_SCANCODE_0:
+                case SCANCODE_0:
                     if (!shiftPressed)
-                        keyDown(KEY_0, false);
+                        _keyDown(KEY_0, false);
                     else
-                        keyDown(KEY_9, true);
+                        _keyDown(KEY_9, true);
                     break;
-                case SDL_SCANCODE_MINUS: keyDown(KEY_MINUS, shiftPressed); break;
-                case SDL_SCANCODE_EQUALS: keyDown(KEY_EQUALS, shiftPressed); break;
-                case SDL_SCANCODE_BACKSPACE: keyDown(KEY_BACKSPACE, false); break;
+                case SCANCODE_MINUS: _keyDown(KEY_MINUS, shiftPressed); break;
+                case SCANCODE_EQUALS: _keyDown(KEY_EQUALS, shiftPressed); break;
+                case SCANCODE_BACKSPACE: _keyDown(KEY_BACKSPACE, false); break;
 
-                case SDL_SCANCODE_Q: keyDown(KEY_Q, shiftPressed); break;
-                case SDL_SCANCODE_W: keyDown(KEY_W, shiftPressed); break;
-                case SDL_SCANCODE_E: keyDown(KEY_E, shiftPressed); break;
-                case SDL_SCANCODE_R: keyDown(KEY_R, shiftPressed); break;
-                case SDL_SCANCODE_T: keyDown(KEY_T, shiftPressed); break;
-                case SDL_SCANCODE_Y: keyDown(KEY_Y, shiftPressed); break;
-                case SDL_SCANCODE_U: keyDown(KEY_U, shiftPressed); break;
-                case SDL_SCANCODE_I: keyDown(KEY_I, shiftPressed); break;
-                case SDL_SCANCODE_O: keyDown(KEY_O, shiftPressed); break;
-                case SDL_SCANCODE_P: keyDown(KEY_P, shiftPressed); break;
+                case SCANCODE_Q: _keyDown(KEY_Q, shiftPressed); break;
+                case SCANCODE_W: _keyDown(KEY_W, shiftPressed); break;
+                case SCANCODE_E: _keyDown(KEY_E, shiftPressed); break;
+                case SCANCODE_R: _keyDown(KEY_R, shiftPressed); break;
+                case SCANCODE_T: _keyDown(KEY_T, shiftPressed); break;
+                case SCANCODE_Y: _keyDown(KEY_Y, shiftPressed); break;
+                case SCANCODE_U: _keyDown(KEY_U, shiftPressed); break;
+                case SCANCODE_I: _keyDown(KEY_I, shiftPressed); break;
+                case SCANCODE_O: _keyDown(KEY_O, shiftPressed); break;
+                case SCANCODE_P: _keyDown(KEY_P, shiftPressed); break;
 
-                case SDL_SCANCODE_A: keyDown(KEY_A, shiftPressed); break;
-                case SDL_SCANCODE_S: keyDown(KEY_S, shiftPressed); break;
-                case SDL_SCANCODE_D: keyDown(KEY_D, shiftPressed); break;
-                case SDL_SCANCODE_F: keyDown(KEY_F, shiftPressed); break;
-                case SDL_SCANCODE_G: keyDown(KEY_G, shiftPressed); break;
-                case SDL_SCANCODE_H: keyDown(KEY_H, shiftPressed); break;
-                case SDL_SCANCODE_J: keyDown(KEY_J, shiftPressed); break;
-                case SDL_SCANCODE_K: keyDown(KEY_K, shiftPressed); break;
-                case SDL_SCANCODE_L: keyDown(KEY_L, shiftPressed); break;
-                case SDL_SCANCODE_SEMICOLON:
+                case SCANCODE_A: _keyDown(KEY_A, shiftPressed); break;
+                case SCANCODE_S: _keyDown(KEY_S, shiftPressed); break;
+                case SCANCODE_D: _keyDown(KEY_D, shiftPressed); break;
+                case SCANCODE_F: _keyDown(KEY_F, shiftPressed); break;
+                case SCANCODE_G: _keyDown(KEY_G, shiftPressed); break;
+                case SCANCODE_H: _keyDown(KEY_H, shiftPressed); break;
+                case SCANCODE_J: _keyDown(KEY_J, shiftPressed); break;
+                case SCANCODE_K: _keyDown(KEY_K, shiftPressed); break;
+                case SCANCODE_L: _keyDown(KEY_L, shiftPressed); break;
+                case SCANCODE_SEMICOLON:
                     if (!shiftPressed)
-                        keyDown(KEY_SEMICOLON, false);
+                        _keyDown(KEY_SEMICOLON, false);
                     else
-                        keyDown(KEY_COLON, false);
+                        _keyDown(KEY_COLON, false);
                     break;
-                case SDL_SCANCODE_APOSTROPHE:
+                case SCANCODE_APOSTROPHE:
                     if (!shiftPressed)
-                        keyDown(KEY_7, true);
+                        _keyDown(KEY_7, true);
                     else
-                        keyDown(KEY_2, true);
+                        _keyDown(KEY_2, true);
                     break;
-                case SDL_SCANCODE_BACKSLASH:
+                case SCANCODE_BACKSLASH:
                     if (!shiftPressed)
-                        keyDown(KEY_BACKSPACE, true);
-                    break;
-
-                case SDL_SCANCODE_Z: keyDown(KEY_Z, shiftPressed); break;
-                case SDL_SCANCODE_X: keyDown(KEY_X, shiftPressed); break;
-                case SDL_SCANCODE_C: keyDown(KEY_C, shiftPressed); break;
-                case SDL_SCANCODE_V: keyDown(KEY_V, shiftPressed); break;
-                case SDL_SCANCODE_B: keyDown(KEY_B, shiftPressed); break;
-                case SDL_SCANCODE_N: keyDown(KEY_N, shiftPressed); break;
-                case SDL_SCANCODE_M: keyDown(KEY_M, shiftPressed); break;
-                case SDL_SCANCODE_COMMA: keyDown(KEY_COMMA, shiftPressed); break;
-                case SDL_SCANCODE_PERIOD: keyDown(KEY_PERIOD, shiftPressed); break;
-                case SDL_SCANCODE_SLASH:
-                    if (!shiftPressed)
-                        keyDown(KEY_SLASH, false);
-                    else
-                        keyDown(KEY_0, true);
+                        _keyDown(KEY_BACKSPACE, true);
                     break;
 
-                case SDL_SCANCODE_SPACE:
-                    keyDown(KEY_SPACE, shiftPressed);
+                case SCANCODE_Z: _keyDown(KEY_Z, shiftPressed); break;
+                case SCANCODE_X: _keyDown(KEY_X, shiftPressed); break;
+                case SCANCODE_C: _keyDown(KEY_C, shiftPressed); break;
+                case SCANCODE_V: _keyDown(KEY_V, shiftPressed); break;
+                case SCANCODE_B: _keyDown(KEY_B, shiftPressed); break;
+                case SCANCODE_N: _keyDown(KEY_N, shiftPressed); break;
+                case SCANCODE_M: _keyDown(KEY_M, shiftPressed); break;
+                case SCANCODE_COMMA: _keyDown(KEY_COMMA, shiftPressed); break;
+                case SCANCODE_PERIOD: _keyDown(KEY_PERIOD, shiftPressed); break;
+                case SCANCODE_SLASH:
+                    if (!shiftPressed)
+                        _keyDown(KEY_SLASH, false);
+                    else
+                        _keyDown(KEY_0, true);
+                    break;
+
+                case SCANCODE_SPACE:
+                    _keyDown(KEY_SPACE, shiftPressed);
                     break;
             }
         }
@@ -294,11 +309,13 @@ void AqKeyboard::handleScancode(unsigned scancode, bool keydown) {
 
     if (ledStatus != ledStatusNext) {
         ledStatus = ledStatusNext;
+#ifndef EMULATOR
         USBHost::instance().keyboardSetLeds(ledStatus);
+#endif
     }
 }
 
-void AqKeyboard::handController(unsigned scancode, bool keydown) {
+void AqKeyboard::handController(unsigned scanCode, bool keyDown) {
     enum {
         UP    = (1 << 0),
         DOWN  = (1 << 1),
@@ -312,17 +329,17 @@ void AqKeyboard::handController(unsigned scancode, bool keydown) {
         K6    = (1 << 9),
     };
 
-    switch (scancode) {
-        case SDL_SCANCODE_UP: handCtrl1Pressed = (keydown) ? (handCtrl1Pressed | UP) : (handCtrl1Pressed & ~UP); break;
-        case SDL_SCANCODE_DOWN: handCtrl1Pressed = (keydown) ? (handCtrl1Pressed | DOWN) : (handCtrl1Pressed & ~DOWN); break;
-        case SDL_SCANCODE_LEFT: handCtrl1Pressed = (keydown) ? (handCtrl1Pressed | LEFT) : (handCtrl1Pressed & ~LEFT); break;
-        case SDL_SCANCODE_RIGHT: handCtrl1Pressed = (keydown) ? (handCtrl1Pressed | RIGHT) : (handCtrl1Pressed & ~RIGHT); break;
-        case SDL_SCANCODE_F1: handCtrl1Pressed = (keydown) ? (handCtrl1Pressed | K1) : (handCtrl1Pressed & ~K1); break;
-        case SDL_SCANCODE_F2: handCtrl1Pressed = (keydown) ? (handCtrl1Pressed | K2) : (handCtrl1Pressed & ~K2); break;
-        case SDL_SCANCODE_F3: handCtrl1Pressed = (keydown) ? (handCtrl1Pressed | K3) : (handCtrl1Pressed & ~K3); break;
-        case SDL_SCANCODE_F4: handCtrl1Pressed = (keydown) ? (handCtrl1Pressed | K4) : (handCtrl1Pressed & ~K4); break;
-        case SDL_SCANCODE_F5: handCtrl1Pressed = (keydown) ? (handCtrl1Pressed | K5) : (handCtrl1Pressed & ~K5); break;
-        case SDL_SCANCODE_F6: handCtrl1Pressed = (keydown) ? (handCtrl1Pressed | K6) : (handCtrl1Pressed & ~K6); break;
+    switch (scanCode) {
+        case SCANCODE_UP: handCtrl1Pressed = (keyDown) ? (handCtrl1Pressed | UP) : (handCtrl1Pressed & ~UP); break;
+        case SCANCODE_DOWN: handCtrl1Pressed = (keyDown) ? (handCtrl1Pressed | DOWN) : (handCtrl1Pressed & ~DOWN); break;
+        case SCANCODE_LEFT: handCtrl1Pressed = (keyDown) ? (handCtrl1Pressed | LEFT) : (handCtrl1Pressed & ~LEFT); break;
+        case SCANCODE_RIGHT: handCtrl1Pressed = (keyDown) ? (handCtrl1Pressed | RIGHT) : (handCtrl1Pressed & ~RIGHT); break;
+        case SCANCODE_F1: handCtrl1Pressed = (keyDown) ? (handCtrl1Pressed | K1) : (handCtrl1Pressed & ~K1); break;
+        case SCANCODE_F2: handCtrl1Pressed = (keyDown) ? (handCtrl1Pressed | K2) : (handCtrl1Pressed & ~K2); break;
+        case SCANCODE_F3: handCtrl1Pressed = (keyDown) ? (handCtrl1Pressed | K3) : (handCtrl1Pressed & ~K3); break;
+        case SCANCODE_F4: handCtrl1Pressed = (keyDown) ? (handCtrl1Pressed | K4) : (handCtrl1Pressed & ~K4); break;
+        case SCANCODE_F5: handCtrl1Pressed = (keyDown) ? (handCtrl1Pressed | K5) : (handCtrl1Pressed & ~K5); break;
+        case SCANCODE_F6: handCtrl1Pressed = (keyDown) ? (handCtrl1Pressed | K6) : (handCtrl1Pressed & ~K6); break;
     }
 
     handCtrl1 = 0xFF;
@@ -352,21 +369,48 @@ void AqKeyboard::handController(unsigned scancode, bool keydown) {
 }
 
 void AqKeyboard::updateMatrix() {
+#ifndef EMULATOR
     RecursiveMutexLock lock(mutex);
+#endif
     if (!waitAllReleased) {
         if (memcmp(prevMatrix, keybMatrix, 8) != 0) {
+#ifdef EMULATOR
+            memcpy(emuState.keybMatrix, keybMatrix, 8);
+#else
             FPGA::instance().aqpUpdateKeybMatrix(keybMatrix);
+#endif
             memcpy(prevMatrix, keybMatrix, 8);
         }
     }
 
     if (prevHandCtrl1 != handCtrl1 || prevHandCtrl2 != handCtrl2) {
+#ifdef EMULATOR
+        emuState.handCtrl1 = handCtrl1;
+        emuState.handCtrl2 = handCtrl2;
+#else
         FPGA::instance().aqpUpdateHandCtrl(handCtrl1, handCtrl2);
+#endif
         prevHandCtrl1 = handCtrl1;
         prevHandCtrl2 = handCtrl2;
     }
 }
 
+#ifdef EMULATOR
+void AqKeyboard::pressKey(unsigned char ch, bool keyDown) {
+    if (ch > '~')
+        return;
+
+    uint8_t val = scanCodeLut[ch];
+    if (val == 0)
+        return;
+
+    if (val & FLAG_SHFT)
+        handleScancode(SCANCODE_LSHIFT, keyDown);
+    if (val & FLAG_CTRL)
+        handleScancode(SCANCODE_LCTRL, keyDown);
+    handleScancode(val & 0x3F, keyDown);
+}
+#else
 void AqKeyboard::pressKey(unsigned ch) {
     if (ch == 0x1C) {
         // Delay for 100ms
@@ -386,17 +430,17 @@ void AqKeyboard::pressKey(unsigned ch) {
         return;
 
     if (val & FLAG_SHFT)
-        handleScancode(SDL_SCANCODE_LSHIFT, true);
+        handleScancode(SCANCODE_LSHIFT, true);
     if (val & FLAG_CTRL)
-        handleScancode(SDL_SCANCODE_LCTRL, true);
+        handleScancode(SCANCODE_LCTRL, true);
     handleScancode(val & 0x3F, true);
     updateMatrix();
     vTaskDelay(pdMS_TO_TICKS(20));
 
     if (val & FLAG_SHFT)
-        handleScancode(SDL_SCANCODE_LSHIFT, false);
+        handleScancode(SCANCODE_LSHIFT, false);
     if (val & FLAG_CTRL)
-        handleScancode(SDL_SCANCODE_LCTRL, false);
+        handleScancode(SCANCODE_LCTRL, false);
     handleScancode(val & 0x3F, false);
     updateMatrix();
     vTaskDelay(pdMS_TO_TICKS(20));
@@ -405,133 +449,134 @@ void AqKeyboard::pressKey(unsigned ch) {
     if (ch == 0x1E)
         vTaskDelay(pdMS_TO_TICKS(500));
 }
+#endif
 
 const uint8_t AqKeyboard::scanCodeLut[] = {
-    0,                                           //  0 CTRL-@
-    0,                                           //  1 CTRL-A
-    0,                                           //  2 CTRL-B
-    FLAG_CTRL | SDL_SCANCODE_C,                  //  3 CTRL-C
-    0,                                           //  4 CTRL-D
-    0,                                           //  5 CTRL-E
-    0,                                           //  6 CTRL-F
-    FLAG_CTRL | SDL_SCANCODE_G,                  //  7 CTRL-G
-    0,                                           //  8 CTRL-H
-    0,                                           //  9 CTRL-I
-    SDL_SCANCODE_RETURN,                         // 10 CTRL-J \n
-    0,                                           // 11 CTRL-K
-    0,                                           // 12 CTRL-L
-    0,                                           // 13 CTRL-M \r
-    0,                                           // 14 CTRL-N
-    0,                                           // 15 CTRL-O
-    0,                                           // 16 CTRL-P
-    0,                                           // 17 CTRL-Q
-    0,                                           // 18 CTRL-R
-    0,                                           // 19 CTRL-S
-    0,                                           // 20 CTRL-T
-    0,                                           // 21 CTRL-U
-    0,                                           // 22 CTRL-V
-    0,                                           // 23 CTRL-W
-    0,                                           // 24 CTRL-X
-    0,                                           // 25 CTRL-Y
-    0,                                           // 26 CTRL-Z
-    0,                                           // 27 CTRL-[
-    0,                                           // \x1C 28 CTRL-backslash
-    0,                                           // \x1D 29 CTRL-]
-    FLAG_CTRL | SDL_SCANCODE_ESCAPE,             // \x1E 30 CTRL-^
-    FLAG_CTRL | FLAG_SHFT | SDL_SCANCODE_ESCAPE, // \x1F 31 CTRL-_
-    SDL_SCANCODE_SPACE,                          // Space
-    FLAG_SHFT | SDL_SCANCODE_1,                  // !
-    FLAG_SHFT | SDL_SCANCODE_APOSTROPHE,         // "
-    FLAG_SHFT | SDL_SCANCODE_3,                  // #
-    FLAG_SHFT | SDL_SCANCODE_4,                  // $
-    FLAG_SHFT | SDL_SCANCODE_5,                  // %
-    FLAG_SHFT | SDL_SCANCODE_7,                  // &
-    SDL_SCANCODE_APOSTROPHE,                     // '
-    FLAG_SHFT | SDL_SCANCODE_9,                  // (
-    FLAG_SHFT | SDL_SCANCODE_0,                  // )
-    FLAG_SHFT | SDL_SCANCODE_8,                  // *
-    FLAG_SHFT | SDL_SCANCODE_EQUALS,             // +
-    SDL_SCANCODE_COMMA,                          // ,
-    SDL_SCANCODE_MINUS,                          // -
-    SDL_SCANCODE_PERIOD,                         // .
-    SDL_SCANCODE_SLASH,                          // /
-    SDL_SCANCODE_0,                              // 0
-    SDL_SCANCODE_1,                              // 1
-    SDL_SCANCODE_2,                              // 2
-    SDL_SCANCODE_3,                              // 3
-    SDL_SCANCODE_4,                              // 4
-    SDL_SCANCODE_5,                              // 5
-    SDL_SCANCODE_6,                              // 6
-    SDL_SCANCODE_7,                              // 7
-    SDL_SCANCODE_8,                              // 8
-    SDL_SCANCODE_9,                              // 9
-    FLAG_SHFT | SDL_SCANCODE_SEMICOLON,          // :
-    SDL_SCANCODE_SEMICOLON,                      // ;
-    FLAG_SHFT | SDL_SCANCODE_COMMA,              // <
-    SDL_SCANCODE_EQUALS,                         // =
-    FLAG_SHFT | SDL_SCANCODE_PERIOD,             // >
-    FLAG_SHFT | SDL_SCANCODE_SLASH,              // ?
-    FLAG_SHFT | SDL_SCANCODE_2,                  // @
-    FLAG_SHFT | SDL_SCANCODE_A,                  // A
-    FLAG_SHFT | SDL_SCANCODE_B,                  // B
-    FLAG_SHFT | SDL_SCANCODE_C,                  // C
-    FLAG_SHFT | SDL_SCANCODE_D,                  // D
-    FLAG_SHFT | SDL_SCANCODE_E,                  // E
-    FLAG_SHFT | SDL_SCANCODE_F,                  // F
-    FLAG_SHFT | SDL_SCANCODE_G,                  // G
-    FLAG_SHFT | SDL_SCANCODE_H,                  // H
-    FLAG_SHFT | SDL_SCANCODE_I,                  // I
-    FLAG_SHFT | SDL_SCANCODE_J,                  // J
-    FLAG_SHFT | SDL_SCANCODE_K,                  // K
-    FLAG_SHFT | SDL_SCANCODE_L,                  // L
-    FLAG_SHFT | SDL_SCANCODE_M,                  // M
-    FLAG_SHFT | SDL_SCANCODE_N,                  // N
-    FLAG_SHFT | SDL_SCANCODE_O,                  // O
-    FLAG_SHFT | SDL_SCANCODE_P,                  // P
-    FLAG_SHFT | SDL_SCANCODE_Q,                  // Q
-    FLAG_SHFT | SDL_SCANCODE_R,                  // R
-    FLAG_SHFT | SDL_SCANCODE_S,                  // S
-    FLAG_SHFT | SDL_SCANCODE_T,                  // T
-    FLAG_SHFT | SDL_SCANCODE_U,                  // U
-    FLAG_SHFT | SDL_SCANCODE_V,                  // V
-    FLAG_SHFT | SDL_SCANCODE_W,                  // W
-    FLAG_SHFT | SDL_SCANCODE_X,                  // X
-    FLAG_SHFT | SDL_SCANCODE_Y,                  // Y
-    FLAG_SHFT | SDL_SCANCODE_Z,                  // Z
-    SDL_SCANCODE_LEFTBRACKET,                    // [
-    SDL_SCANCODE_BACKSLASH,                      // backslash
-    SDL_SCANCODE_RIGHTBRACKET,                   // ]
-    FLAG_SHFT | SDL_SCANCODE_6,                  // ^
-    FLAG_SHFT | SDL_SCANCODE_MINUS,              // _
-    SDL_SCANCODE_GRAVE,                          // `
-    SDL_SCANCODE_A,                              // a
-    SDL_SCANCODE_B,                              // b
-    SDL_SCANCODE_C,                              // c
-    SDL_SCANCODE_D,                              // d
-    SDL_SCANCODE_E,                              // e
-    SDL_SCANCODE_F,                              // f
-    SDL_SCANCODE_G,                              // g
-    SDL_SCANCODE_H,                              // h
-    SDL_SCANCODE_I,                              // i
-    SDL_SCANCODE_J,                              // j
-    SDL_SCANCODE_K,                              // k
-    SDL_SCANCODE_L,                              // l
-    SDL_SCANCODE_M,                              // m
-    SDL_SCANCODE_N,                              // n
-    SDL_SCANCODE_O,                              // o
-    SDL_SCANCODE_P,                              // p
-    SDL_SCANCODE_Q,                              // q
-    SDL_SCANCODE_R,                              // r
-    SDL_SCANCODE_S,                              // s
-    SDL_SCANCODE_T,                              // t
-    SDL_SCANCODE_U,                              // u
-    SDL_SCANCODE_V,                              // v
-    SDL_SCANCODE_W,                              // w
-    SDL_SCANCODE_X,                              // x
-    SDL_SCANCODE_Y,                              // y
-    SDL_SCANCODE_Z,                              // z
-    FLAG_SHFT | SDL_SCANCODE_LEFTBRACKET,        // {
-    FLAG_SHFT | SDL_SCANCODE_BACKSLASH,          // |
-    FLAG_SHFT | SDL_SCANCODE_RIGHTBRACKET,       // }
-    FLAG_SHFT | SDL_SCANCODE_GRAVE,              // ~
+    0,                                       //  0 CTRL-@
+    0,                                       //  1 CTRL-A
+    0,                                       //  2 CTRL-B
+    FLAG_CTRL | SCANCODE_C,                  //  3 CTRL-C
+    0,                                       //  4 CTRL-D
+    0,                                       //  5 CTRL-E
+    0,                                       //  6 CTRL-F
+    FLAG_CTRL | SCANCODE_G,                  //  7 CTRL-G
+    0,                                       //  8 CTRL-H
+    0,                                       //  9 CTRL-I
+    SCANCODE_RETURN,                         // 10 CTRL-J \n
+    0,                                       // 11 CTRL-K
+    0,                                       // 12 CTRL-L
+    0,                                       // 13 CTRL-M \r
+    0,                                       // 14 CTRL-N
+    0,                                       // 15 CTRL-O
+    0,                                       // 16 CTRL-P
+    0,                                       // 17 CTRL-Q
+    0,                                       // 18 CTRL-R
+    0,                                       // 19 CTRL-S
+    0,                                       // 20 CTRL-T
+    0,                                       // 21 CTRL-U
+    0,                                       // 22 CTRL-V
+    0,                                       // 23 CTRL-W
+    0,                                       // 24 CTRL-X
+    0,                                       // 25 CTRL-Y
+    0,                                       // 26 CTRL-Z
+    0,                                       // 27 CTRL-[
+    0,                                       // \x1C 28 CTRL-backslash
+    0,                                       // \x1D 29 CTRL-]
+    FLAG_CTRL | SCANCODE_ESCAPE,             // \x1E 30 CTRL-^
+    FLAG_CTRL | FLAG_SHFT | SCANCODE_ESCAPE, // \x1F 31 CTRL-_
+    SCANCODE_SPACE,                          // Space
+    FLAG_SHFT | SCANCODE_1,                  // !
+    FLAG_SHFT | SCANCODE_APOSTROPHE,         // "
+    FLAG_SHFT | SCANCODE_3,                  // #
+    FLAG_SHFT | SCANCODE_4,                  // $
+    FLAG_SHFT | SCANCODE_5,                  // %
+    FLAG_SHFT | SCANCODE_7,                  // &
+    SCANCODE_APOSTROPHE,                     // '
+    FLAG_SHFT | SCANCODE_9,                  // (
+    FLAG_SHFT | SCANCODE_0,                  // )
+    FLAG_SHFT | SCANCODE_8,                  // *
+    FLAG_SHFT | SCANCODE_EQUALS,             // +
+    SCANCODE_COMMA,                          // ,
+    SCANCODE_MINUS,                          // -
+    SCANCODE_PERIOD,                         // .
+    SCANCODE_SLASH,                          // /
+    SCANCODE_0,                              // 0
+    SCANCODE_1,                              // 1
+    SCANCODE_2,                              // 2
+    SCANCODE_3,                              // 3
+    SCANCODE_4,                              // 4
+    SCANCODE_5,                              // 5
+    SCANCODE_6,                              // 6
+    SCANCODE_7,                              // 7
+    SCANCODE_8,                              // 8
+    SCANCODE_9,                              // 9
+    FLAG_SHFT | SCANCODE_SEMICOLON,          // :
+    SCANCODE_SEMICOLON,                      // ;
+    FLAG_SHFT | SCANCODE_COMMA,              // <
+    SCANCODE_EQUALS,                         // =
+    FLAG_SHFT | SCANCODE_PERIOD,             // >
+    FLAG_SHFT | SCANCODE_SLASH,              // ?
+    FLAG_SHFT | SCANCODE_2,                  // @
+    FLAG_SHFT | SCANCODE_A,                  // A
+    FLAG_SHFT | SCANCODE_B,                  // B
+    FLAG_SHFT | SCANCODE_C,                  // C
+    FLAG_SHFT | SCANCODE_D,                  // D
+    FLAG_SHFT | SCANCODE_E,                  // E
+    FLAG_SHFT | SCANCODE_F,                  // F
+    FLAG_SHFT | SCANCODE_G,                  // G
+    FLAG_SHFT | SCANCODE_H,                  // H
+    FLAG_SHFT | SCANCODE_I,                  // I
+    FLAG_SHFT | SCANCODE_J,                  // J
+    FLAG_SHFT | SCANCODE_K,                  // K
+    FLAG_SHFT | SCANCODE_L,                  // L
+    FLAG_SHFT | SCANCODE_M,                  // M
+    FLAG_SHFT | SCANCODE_N,                  // N
+    FLAG_SHFT | SCANCODE_O,                  // O
+    FLAG_SHFT | SCANCODE_P,                  // P
+    FLAG_SHFT | SCANCODE_Q,                  // Q
+    FLAG_SHFT | SCANCODE_R,                  // R
+    FLAG_SHFT | SCANCODE_S,                  // S
+    FLAG_SHFT | SCANCODE_T,                  // T
+    FLAG_SHFT | SCANCODE_U,                  // U
+    FLAG_SHFT | SCANCODE_V,                  // V
+    FLAG_SHFT | SCANCODE_W,                  // W
+    FLAG_SHFT | SCANCODE_X,                  // X
+    FLAG_SHFT | SCANCODE_Y,                  // Y
+    FLAG_SHFT | SCANCODE_Z,                  // Z
+    SCANCODE_LEFTBRACKET,                    // [
+    SCANCODE_BACKSLASH,                      // backslash
+    SCANCODE_RIGHTBRACKET,                   // ]
+    FLAG_SHFT | SCANCODE_6,                  // ^
+    FLAG_SHFT | SCANCODE_MINUS,              // _
+    SCANCODE_GRAVE,                          // `
+    SCANCODE_A,                              // a
+    SCANCODE_B,                              // b
+    SCANCODE_C,                              // c
+    SCANCODE_D,                              // d
+    SCANCODE_E,                              // e
+    SCANCODE_F,                              // f
+    SCANCODE_G,                              // g
+    SCANCODE_H,                              // h
+    SCANCODE_I,                              // i
+    SCANCODE_J,                              // j
+    SCANCODE_K,                              // k
+    SCANCODE_L,                              // l
+    SCANCODE_M,                              // m
+    SCANCODE_N,                              // n
+    SCANCODE_O,                              // o
+    SCANCODE_P,                              // p
+    SCANCODE_Q,                              // q
+    SCANCODE_R,                              // r
+    SCANCODE_S,                              // s
+    SCANCODE_T,                              // t
+    SCANCODE_U,                              // u
+    SCANCODE_V,                              // v
+    SCANCODE_W,                              // w
+    SCANCODE_X,                              // x
+    SCANCODE_Y,                              // y
+    SCANCODE_Z,                              // z
+    FLAG_SHFT | SCANCODE_LEFTBRACKET,        // {
+    FLAG_SHFT | SCANCODE_BACKSLASH,          // |
+    FLAG_SHFT | SCANCODE_RIGHTBRACKET,       // }
+    FLAG_SHFT | SCANCODE_GRAVE,              // ~
 };

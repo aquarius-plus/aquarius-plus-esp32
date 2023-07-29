@@ -1,3 +1,4 @@
+// This file is shared between the emulator and ESP32. It needs to be manually copied when changed.
 #pragma once
 
 #include "Common.h"
@@ -9,12 +10,18 @@ public:
     static AqKeyboard &instance();
 
     void init();
-    void handleScancode(unsigned scancode, bool keydown);
+    void handleScancode(unsigned scanCode, bool keyDown);
+#ifdef EMULATOR
+    void pressKey(unsigned char ch, bool keyDown);
+#else
     void pressKey(unsigned ch);
+#endif
     void updateMatrix();
 
 private:
+#ifndef EMULATOR
     SemaphoreHandle_t mutex;
+#endif
 
     uint8_t  pressedKeys[8]   = {0};
     uint16_t modifiers        = 0;
@@ -29,10 +36,10 @@ private:
     uint8_t  ledStatus        = 0;
     bool     waitAllReleased  = false;
 
-    void keyDown(int key);
-    void keyUp(int key);
-    void keyDown(int key, bool shift);
-    void handController(unsigned scancode, bool keydown);
+    void _keyDown(int key);
+    void _keyUp(int key);
+    void _keyDown(int key, bool shift);
+    void handController(unsigned scanCode, bool keyDown);
 
     static const uint8_t scanCodeLut[];
 };

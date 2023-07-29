@@ -1,3 +1,4 @@
+// This file is shared between the emulator and ESP32. It needs to be manually copied when changed.
 #pragma once
 
 // Aquarius keys
@@ -52,392 +53,269 @@ enum {
     KEY_CTRL      = 47, // Ctrl
 };
 
-typedef enum {
-    SDL_SCANCODE_UNKNOWN = 0,
+enum ScanCode {
+    SCANCODE_UNKNOWN            = 0,
+    SCANCODE_A                  = 4,
+    SCANCODE_B                  = 5,
+    SCANCODE_C                  = 6,
+    SCANCODE_D                  = 7,
+    SCANCODE_E                  = 8,
+    SCANCODE_F                  = 9,
+    SCANCODE_G                  = 10,
+    SCANCODE_H                  = 11,
+    SCANCODE_I                  = 12,
+    SCANCODE_J                  = 13,
+    SCANCODE_K                  = 14,
+    SCANCODE_L                  = 15,
+    SCANCODE_M                  = 16,
+    SCANCODE_N                  = 17,
+    SCANCODE_O                  = 18,
+    SCANCODE_P                  = 19,
+    SCANCODE_Q                  = 20,
+    SCANCODE_R                  = 21,
+    SCANCODE_S                  = 22,
+    SCANCODE_T                  = 23,
+    SCANCODE_U                  = 24,
+    SCANCODE_V                  = 25,
+    SCANCODE_W                  = 26,
+    SCANCODE_X                  = 27,
+    SCANCODE_Y                  = 28,
+    SCANCODE_Z                  = 29,
+    SCANCODE_1                  = 30,
+    SCANCODE_2                  = 31,
+    SCANCODE_3                  = 32,
+    SCANCODE_4                  = 33,
+    SCANCODE_5                  = 34,
+    SCANCODE_6                  = 35,
+    SCANCODE_7                  = 36,
+    SCANCODE_8                  = 37,
+    SCANCODE_9                  = 38,
+    SCANCODE_0                  = 39,
+    SCANCODE_RETURN             = 40,
+    SCANCODE_ESCAPE             = 41,
+    SCANCODE_BACKSPACE          = 42,
+    SCANCODE_TAB                = 43,
+    SCANCODE_SPACE              = 44,
+    SCANCODE_MINUS              = 45,
+    SCANCODE_EQUALS             = 46,
+    SCANCODE_LEFTBRACKET        = 47,
+    SCANCODE_RIGHTBRACKET       = 48,
+    SCANCODE_BACKSLASH          = 49,
+    SCANCODE_NONUSHASH          = 50,
+    SCANCODE_SEMICOLON          = 51,
+    SCANCODE_APOSTROPHE         = 52,
+    SCANCODE_GRAVE              = 53,
+    SCANCODE_COMMA              = 54,
+    SCANCODE_PERIOD             = 55,
+    SCANCODE_SLASH              = 56,
+    SCANCODE_CAPSLOCK           = 57,
+    SCANCODE_F1                 = 58,
+    SCANCODE_F2                 = 59,
+    SCANCODE_F3                 = 60,
+    SCANCODE_F4                 = 61,
+    SCANCODE_F5                 = 62,
+    SCANCODE_F6                 = 63,
+    SCANCODE_F7                 = 64,
+    SCANCODE_F8                 = 65,
+    SCANCODE_F9                 = 66,
+    SCANCODE_F10                = 67,
+    SCANCODE_F11                = 68,
+    SCANCODE_F12                = 69,
+    SCANCODE_PRINTSCREEN        = 70,
+    SCANCODE_SCROLLLOCK         = 71,
+    SCANCODE_PAUSE              = 72,
+    SCANCODE_INSERT             = 73,
+    SCANCODE_HOME               = 74,
+    SCANCODE_PAGEUP             = 75,
+    SCANCODE_DELETE             = 76,
+    SCANCODE_END                = 77,
+    SCANCODE_PAGEDOWN           = 78,
+    SCANCODE_RIGHT              = 79,
+    SCANCODE_LEFT               = 80,
+    SCANCODE_DOWN               = 81,
+    SCANCODE_UP                 = 82,
+    SCANCODE_NUMLOCKCLEAR       = 83,
+    SCANCODE_KP_DIVIDE          = 84,
+    SCANCODE_KP_MULTIPLY        = 85,
+    SCANCODE_KP_MINUS           = 86,
+    SCANCODE_KP_PLUS            = 87,
+    SCANCODE_KP_ENTER           = 88,
+    SCANCODE_KP_1               = 89,
+    SCANCODE_KP_2               = 90,
+    SCANCODE_KP_3               = 91,
+    SCANCODE_KP_4               = 92,
+    SCANCODE_KP_5               = 93,
+    SCANCODE_KP_6               = 94,
+    SCANCODE_KP_7               = 95,
+    SCANCODE_KP_8               = 96,
+    SCANCODE_KP_9               = 97,
+    SCANCODE_KP_0               = 98,
+    SCANCODE_KP_PERIOD          = 99,
+    SCANCODE_NONUSBACKSLASH     = 100,
+    SCANCODE_APPLICATION        = 101,
+    SCANCODE_POWER              = 102,
+    SCANCODE_KP_EQUALS          = 103,
+    SCANCODE_F13                = 104,
+    SCANCODE_F14                = 105,
+    SCANCODE_F15                = 106,
+    SCANCODE_F16                = 107,
+    SCANCODE_F17                = 108,
+    SCANCODE_F18                = 109,
+    SCANCODE_F19                = 110,
+    SCANCODE_F20                = 111,
+    SCANCODE_F21                = 112,
+    SCANCODE_F22                = 113,
+    SCANCODE_F23                = 114,
+    SCANCODE_F24                = 115,
+    SCANCODE_EXECUTE            = 116,
+    SCANCODE_HELP               = 117,
+    SCANCODE_MENU               = 118,
+    SCANCODE_SELECT             = 119,
+    SCANCODE_STOP               = 120,
+    SCANCODE_AGAIN              = 121,
+    SCANCODE_UNDO               = 122,
+    SCANCODE_CUT                = 123,
+    SCANCODE_COPY               = 124,
+    SCANCODE_PASTE              = 125,
+    SCANCODE_FIND               = 126,
+    SCANCODE_MUTE               = 127,
+    SCANCODE_VOLUMEUP           = 128,
+    SCANCODE_VOLUMEDOWN         = 129,
+    SCANCODE_KP_COMMA           = 133,
+    SCANCODE_KP_EQUALSAS400     = 134,
+    SCANCODE_INTERNATIONAL1     = 135,
+    SCANCODE_INTERNATIONAL2     = 136,
+    SCANCODE_INTERNATIONAL3     = 137,
+    SCANCODE_INTERNATIONAL4     = 138,
+    SCANCODE_INTERNATIONAL5     = 139,
+    SCANCODE_INTERNATIONAL6     = 140,
+    SCANCODE_INTERNATIONAL7     = 141,
+    SCANCODE_INTERNATIONAL8     = 142,
+    SCANCODE_INTERNATIONAL9     = 143,
+    SCANCODE_LANG1              = 144,
+    SCANCODE_LANG2              = 145,
+    SCANCODE_LANG3              = 146,
+    SCANCODE_LANG4              = 147,
+    SCANCODE_LANG5              = 148,
+    SCANCODE_LANG6              = 149,
+    SCANCODE_LANG7              = 150,
+    SCANCODE_LANG8              = 151,
+    SCANCODE_LANG9              = 152,
+    SCANCODE_ALTERASE           = 153,
+    SCANCODE_SYSREQ             = 154,
+    SCANCODE_CANCEL             = 155,
+    SCANCODE_CLEAR              = 156,
+    SCANCODE_PRIOR              = 157,
+    SCANCODE_RETURN2            = 158,
+    SCANCODE_SEPARATOR          = 159,
+    SCANCODE_OUT                = 160,
+    SCANCODE_OPER               = 161,
+    SCANCODE_CLEARAGAIN         = 162,
+    SCANCODE_CRSEL              = 163,
+    SCANCODE_EXSEL              = 164,
+    SCANCODE_KP_00              = 176,
+    SCANCODE_KP_000             = 177,
+    SCANCODE_THOUSANDSSEPARATOR = 178,
+    SCANCODE_DECIMALSEPARATOR   = 179,
+    SCANCODE_CURRENCYUNIT       = 180,
+    SCANCODE_CURRENCYSUBUNIT    = 181,
+    SCANCODE_KP_LEFTPAREN       = 182,
+    SCANCODE_KP_RIGHTPAREN      = 183,
+    SCANCODE_KP_LEFTBRACE       = 184,
+    SCANCODE_KP_RIGHTBRACE      = 185,
+    SCANCODE_KP_TAB             = 186,
+    SCANCODE_KP_BACKSPACE       = 187,
+    SCANCODE_KP_A               = 188,
+    SCANCODE_KP_B               = 189,
+    SCANCODE_KP_C               = 190,
+    SCANCODE_KP_D               = 191,
+    SCANCODE_KP_E               = 192,
+    SCANCODE_KP_F               = 193,
+    SCANCODE_KP_XOR             = 194,
+    SCANCODE_KP_POWER           = 195,
+    SCANCODE_KP_PERCENT         = 196,
+    SCANCODE_KP_LESS            = 197,
+    SCANCODE_KP_GREATER         = 198,
+    SCANCODE_KP_AMPERSAND       = 199,
+    SCANCODE_KP_DBLAMPERSAND    = 200,
+    SCANCODE_KP_VERTICALBAR     = 201,
+    SCANCODE_KP_DBLVERTICALBAR  = 202,
+    SCANCODE_KP_COLON           = 203,
+    SCANCODE_KP_HASH            = 204,
+    SCANCODE_KP_SPACE           = 205,
+    SCANCODE_KP_AT              = 206,
+    SCANCODE_KP_EXCLAM          = 207,
+    SCANCODE_KP_MEMSTORE        = 208,
+    SCANCODE_KP_MEMRECALL       = 209,
+    SCANCODE_KP_MEMCLEAR        = 210,
+    SCANCODE_KP_MEMADD          = 211,
+    SCANCODE_KP_MEMSUBTRACT     = 212,
+    SCANCODE_KP_MEMMULTIPLY     = 213,
+    SCANCODE_KP_MEMDIVIDE       = 214,
+    SCANCODE_KP_PLUSMINUS       = 215,
+    SCANCODE_KP_CLEAR           = 216,
+    SCANCODE_KP_CLEARENTRY      = 217,
+    SCANCODE_KP_BINARY          = 218,
+    SCANCODE_KP_OCTAL           = 219,
+    SCANCODE_KP_DECIMAL         = 220,
+    SCANCODE_KP_HEXADECIMAL     = 221,
+    SCANCODE_LCTRL              = 224,
+    SCANCODE_LSHIFT             = 225,
+    SCANCODE_LALT               = 226,
+    SCANCODE_LGUI               = 227,
+    SCANCODE_RCTRL              = 228,
+    SCANCODE_RSHIFT             = 229,
+    SCANCODE_RALT               = 230,
+    SCANCODE_RGUI               = 231,
+    SCANCODE_MODE               = 257,
+    SCANCODE_AUDIONEXT          = 258,
+    SCANCODE_AUDIOPREV          = 259,
+    SCANCODE_AUDIOSTOP          = 260,
+    SCANCODE_AUDIOPLAY          = 261,
+    SCANCODE_AUDIOMUTE          = 262,
+    SCANCODE_MEDIASELECT        = 263,
+    SCANCODE_WWW                = 264,
+    SCANCODE_MAIL               = 265,
+    SCANCODE_CALCULATOR         = 266,
+    SCANCODE_COMPUTER           = 267,
+    SCANCODE_AC_SEARCH          = 268,
+    SCANCODE_AC_HOME            = 269,
+    SCANCODE_AC_BACK            = 270,
+    SCANCODE_AC_FORWARD         = 271,
+    SCANCODE_AC_STOP            = 272,
+    SCANCODE_AC_REFRESH         = 273,
+    SCANCODE_AC_BOOKMARKS       = 274,
+    SCANCODE_BRIGHTNESSDOWN     = 275,
+    SCANCODE_BRIGHTNESSUP       = 276,
+    SCANCODE_DISPLAYSWITCH      = 277,
+    SCANCODE_KBDILLUMTOGGLE     = 278,
+    SCANCODE_KBDILLUMDOWN       = 279,
+    SCANCODE_KBDILLUMUP         = 280,
+    SCANCODE_EJECT              = 281,
+    SCANCODE_SLEEP              = 282,
+    SCANCODE_APP1               = 283,
+    SCANCODE_APP2               = 284,
+    SCANCODE_AUDIOREWIND        = 285,
+    SCANCODE_AUDIOFASTFORWARD   = 286,
+    NUM_SCANCODES               = 512,
+};
 
-    /**
-     *  \name Usage page 0x07
-     *
-     *  These values are from usage page 0x07 (USB keyboard page).
-     */
-    /* @{ */
-
-    SDL_SCANCODE_A = 4,
-    SDL_SCANCODE_B = 5,
-    SDL_SCANCODE_C = 6,
-    SDL_SCANCODE_D = 7,
-    SDL_SCANCODE_E = 8,
-    SDL_SCANCODE_F = 9,
-    SDL_SCANCODE_G = 10,
-    SDL_SCANCODE_H = 11,
-    SDL_SCANCODE_I = 12,
-    SDL_SCANCODE_J = 13,
-    SDL_SCANCODE_K = 14,
-    SDL_SCANCODE_L = 15,
-    SDL_SCANCODE_M = 16,
-    SDL_SCANCODE_N = 17,
-    SDL_SCANCODE_O = 18,
-    SDL_SCANCODE_P = 19,
-    SDL_SCANCODE_Q = 20,
-    SDL_SCANCODE_R = 21,
-    SDL_SCANCODE_S = 22,
-    SDL_SCANCODE_T = 23,
-    SDL_SCANCODE_U = 24,
-    SDL_SCANCODE_V = 25,
-    SDL_SCANCODE_W = 26,
-    SDL_SCANCODE_X = 27,
-    SDL_SCANCODE_Y = 28,
-    SDL_SCANCODE_Z = 29,
-
-    SDL_SCANCODE_1 = 30,
-    SDL_SCANCODE_2 = 31,
-    SDL_SCANCODE_3 = 32,
-    SDL_SCANCODE_4 = 33,
-    SDL_SCANCODE_5 = 34,
-    SDL_SCANCODE_6 = 35,
-    SDL_SCANCODE_7 = 36,
-    SDL_SCANCODE_8 = 37,
-    SDL_SCANCODE_9 = 38,
-    SDL_SCANCODE_0 = 39,
-
-    SDL_SCANCODE_RETURN    = 40,
-    SDL_SCANCODE_ESCAPE    = 41,
-    SDL_SCANCODE_BACKSPACE = 42,
-    SDL_SCANCODE_TAB       = 43,
-    SDL_SCANCODE_SPACE     = 44,
-
-    SDL_SCANCODE_MINUS        = 45,
-    SDL_SCANCODE_EQUALS       = 46,
-    SDL_SCANCODE_LEFTBRACKET  = 47,
-    SDL_SCANCODE_RIGHTBRACKET = 48,
-    SDL_SCANCODE_BACKSLASH    = 49, /**< Located at the lower left of the return
-                                     *   key on ISO keyboards and at the right end
-                                     *   of the QWERTY row on ANSI keyboards.
-                                     *   Produces REVERSE SOLIDUS (backslash) and
-                                     *   VERTICAL LINE in a US layout, REVERSE
-                                     *   SOLIDUS and VERTICAL LINE in a UK Mac
-                                     *   layout, NUMBER SIGN and TILDE in a UK
-                                     *   Windows layout, DOLLAR SIGN and POUND SIGN
-                                     *   in a Swiss German layout, NUMBER SIGN and
-                                     *   APOSTROPHE in a German layout, GRAVE
-                                     *   ACCENT and POUND SIGN in a French Mac
-                                     *   layout, and ASTERISK and MICRO SIGN in a
-                                     *   French Windows layout.
-                                     */
-    SDL_SCANCODE_NONUSHASH = 50,    /**< ISO USB keyboards actually use this code
-                                     *   instead of 49 for the same key, but all
-                                     *   OSes I've seen treat the two codes
-                                     *   identically. So, as an implementor, unless
-                                     *   your keyboard generates both of those
-                                     *   codes and your OS treats them differently,
-                                     *   you should generate SDL_SCANCODE_BACKSLASH
-                                     *   instead of this code. As a user, you
-                                     *   should not rely on this code because SDL
-                                     *   will never generate it with most (all?)
-                                     *   keyboards.
-                                     */
-    SDL_SCANCODE_SEMICOLON  = 51,
-    SDL_SCANCODE_APOSTROPHE = 52,
-    SDL_SCANCODE_GRAVE      = 53, /**< Located in the top left corner (on both ANSI
-                                   *   and ISO keyboards). Produces GRAVE ACCENT and
-                                   *   TILDE in a US Windows layout and in US and UK
-                                   *   Mac layouts on ANSI keyboards, GRAVE ACCENT
-                                   *   and NOT SIGN in a UK Windows layout, SECTION
-                                   *   SIGN and PLUS-MINUS SIGN in US and UK Mac
-                                   *   layouts on ISO keyboards, SECTION SIGN and
-                                   *   DEGREE SIGN in a Swiss German layout (Mac:
-                                   *   only on ISO keyboards), CIRCUMFLEX ACCENT and
-                                   *   DEGREE SIGN in a German layout (Mac: only on
-                                   *   ISO keyboards), SUPERSCRIPT TWO and TILDE in a
-                                   *   French Windows layout, COMMERCIAL AT and
-                                   *   NUMBER SIGN in a French Mac layout on ISO
-                                   *   keyboards, and LESS-THAN SIGN and GREATER-THAN
-                                   *   SIGN in a Swiss German, German, or French Mac
-                                   *   layout on ANSI keyboards.
-                                   */
-    SDL_SCANCODE_COMMA  = 54,
-    SDL_SCANCODE_PERIOD = 55,
-    SDL_SCANCODE_SLASH  = 56,
-
-    SDL_SCANCODE_CAPSLOCK = 57,
-
-    SDL_SCANCODE_F1  = 58,
-    SDL_SCANCODE_F2  = 59,
-    SDL_SCANCODE_F3  = 60,
-    SDL_SCANCODE_F4  = 61,
-    SDL_SCANCODE_F5  = 62,
-    SDL_SCANCODE_F6  = 63,
-    SDL_SCANCODE_F7  = 64,
-    SDL_SCANCODE_F8  = 65,
-    SDL_SCANCODE_F9  = 66,
-    SDL_SCANCODE_F10 = 67,
-    SDL_SCANCODE_F11 = 68,
-    SDL_SCANCODE_F12 = 69,
-
-    SDL_SCANCODE_PRINTSCREEN = 70,
-    SDL_SCANCODE_SCROLLLOCK  = 71,
-    SDL_SCANCODE_PAUSE       = 72,
-    SDL_SCANCODE_INSERT      = 73, /**< insert on PC, help on some Mac keyboards (but
-                                        does send code 73, not 117) */
-    SDL_SCANCODE_HOME     = 74,
-    SDL_SCANCODE_PAGEUP   = 75,
-    SDL_SCANCODE_DELETE   = 76,
-    SDL_SCANCODE_END      = 77,
-    SDL_SCANCODE_PAGEDOWN = 78,
-    SDL_SCANCODE_RIGHT    = 79,
-    SDL_SCANCODE_LEFT     = 80,
-    SDL_SCANCODE_DOWN     = 81,
-    SDL_SCANCODE_UP       = 82,
-
-    SDL_SCANCODE_NUMLOCKCLEAR = 83, /**< num lock on PC, clear on Mac keyboards
-                                     */
-    SDL_SCANCODE_KP_DIVIDE   = 84,
-    SDL_SCANCODE_KP_MULTIPLY = 85,
-    SDL_SCANCODE_KP_MINUS    = 86,
-    SDL_SCANCODE_KP_PLUS     = 87,
-    SDL_SCANCODE_KP_ENTER    = 88,
-    SDL_SCANCODE_KP_1        = 89,
-    SDL_SCANCODE_KP_2        = 90,
-    SDL_SCANCODE_KP_3        = 91,
-    SDL_SCANCODE_KP_4        = 92,
-    SDL_SCANCODE_KP_5        = 93,
-    SDL_SCANCODE_KP_6        = 94,
-    SDL_SCANCODE_KP_7        = 95,
-    SDL_SCANCODE_KP_8        = 96,
-    SDL_SCANCODE_KP_9        = 97,
-    SDL_SCANCODE_KP_0        = 98,
-    SDL_SCANCODE_KP_PERIOD   = 99,
-
-    SDL_SCANCODE_NONUSBACKSLASH = 100, /**< This is the additional key that ISO
-                                        *   keyboards have over ANSI ones,
-                                        *   located between left shift and Y.
-                                        *   Produces GRAVE ACCENT and TILDE in a
-                                        *   US or UK Mac layout, REVERSE SOLIDUS
-                                        *   (backslash) and VERTICAL LINE in a
-                                        *   US or UK Windows layout, and
-                                        *   LESS-THAN SIGN and GREATER-THAN SIGN
-                                        *   in a Swiss German, German, or French
-                                        *   layout. */
-    SDL_SCANCODE_APPLICATION = 101,    /**< windows contextual menu, compose */
-    SDL_SCANCODE_POWER       = 102,    /**< The USB document says this is a status flag,
-                                        *   not a physical key - but some Mac keyboards
-                                        *   do have a power key. */
-    SDL_SCANCODE_KP_EQUALS  = 103,
-    SDL_SCANCODE_F13        = 104,
-    SDL_SCANCODE_F14        = 105,
-    SDL_SCANCODE_F15        = 106,
-    SDL_SCANCODE_F16        = 107,
-    SDL_SCANCODE_F17        = 108,
-    SDL_SCANCODE_F18        = 109,
-    SDL_SCANCODE_F19        = 110,
-    SDL_SCANCODE_F20        = 111,
-    SDL_SCANCODE_F21        = 112,
-    SDL_SCANCODE_F22        = 113,
-    SDL_SCANCODE_F23        = 114,
-    SDL_SCANCODE_F24        = 115,
-    SDL_SCANCODE_EXECUTE    = 116,
-    SDL_SCANCODE_HELP       = 117,
-    SDL_SCANCODE_MENU       = 118,
-    SDL_SCANCODE_SELECT     = 119,
-    SDL_SCANCODE_STOP       = 120,
-    SDL_SCANCODE_AGAIN      = 121, /**< redo */
-    SDL_SCANCODE_UNDO       = 122,
-    SDL_SCANCODE_CUT        = 123,
-    SDL_SCANCODE_COPY       = 124,
-    SDL_SCANCODE_PASTE      = 125,
-    SDL_SCANCODE_FIND       = 126,
-    SDL_SCANCODE_MUTE       = 127,
-    SDL_SCANCODE_VOLUMEUP   = 128,
-    SDL_SCANCODE_VOLUMEDOWN = 129,
-    /* not sure whether there's a reason to enable these */
-    /*     SDL_SCANCODE_LOCKINGCAPSLOCK = 130,  */
-    /*     SDL_SCANCODE_LOCKINGNUMLOCK = 131, */
-    /*     SDL_SCANCODE_LOCKINGSCROLLLOCK = 132, */
-    SDL_SCANCODE_KP_COMMA       = 133,
-    SDL_SCANCODE_KP_EQUALSAS400 = 134,
-
-    SDL_SCANCODE_INTERNATIONAL1 = 135, /**< used on Asian keyboards, see
-                                            footnotes in USB doc */
-    SDL_SCANCODE_INTERNATIONAL2 = 136,
-    SDL_SCANCODE_INTERNATIONAL3 = 137, /**< Yen */
-    SDL_SCANCODE_INTERNATIONAL4 = 138,
-    SDL_SCANCODE_INTERNATIONAL5 = 139,
-    SDL_SCANCODE_INTERNATIONAL6 = 140,
-    SDL_SCANCODE_INTERNATIONAL7 = 141,
-    SDL_SCANCODE_INTERNATIONAL8 = 142,
-    SDL_SCANCODE_INTERNATIONAL9 = 143,
-    SDL_SCANCODE_LANG1          = 144, /**< Hangul/English toggle */
-    SDL_SCANCODE_LANG2          = 145, /**< Hanja conversion */
-    SDL_SCANCODE_LANG3          = 146, /**< Katakana */
-    SDL_SCANCODE_LANG4          = 147, /**< Hiragana */
-    SDL_SCANCODE_LANG5          = 148, /**< Zenkaku/Hankaku */
-    SDL_SCANCODE_LANG6          = 149, /**< reserved */
-    SDL_SCANCODE_LANG7          = 150, /**< reserved */
-    SDL_SCANCODE_LANG8          = 151, /**< reserved */
-    SDL_SCANCODE_LANG9          = 152, /**< reserved */
-
-    SDL_SCANCODE_ALTERASE   = 153, /**< Erase-Eaze */
-    SDL_SCANCODE_SYSREQ     = 154,
-    SDL_SCANCODE_CANCEL     = 155,
-    SDL_SCANCODE_CLEAR      = 156,
-    SDL_SCANCODE_PRIOR      = 157,
-    SDL_SCANCODE_RETURN2    = 158,
-    SDL_SCANCODE_SEPARATOR  = 159,
-    SDL_SCANCODE_OUT        = 160,
-    SDL_SCANCODE_OPER       = 161,
-    SDL_SCANCODE_CLEARAGAIN = 162,
-    SDL_SCANCODE_CRSEL      = 163,
-    SDL_SCANCODE_EXSEL      = 164,
-
-    SDL_SCANCODE_KP_00              = 176,
-    SDL_SCANCODE_KP_000             = 177,
-    SDL_SCANCODE_THOUSANDSSEPARATOR = 178,
-    SDL_SCANCODE_DECIMALSEPARATOR   = 179,
-    SDL_SCANCODE_CURRENCYUNIT       = 180,
-    SDL_SCANCODE_CURRENCYSUBUNIT    = 181,
-    SDL_SCANCODE_KP_LEFTPAREN       = 182,
-    SDL_SCANCODE_KP_RIGHTPAREN      = 183,
-    SDL_SCANCODE_KP_LEFTBRACE       = 184,
-    SDL_SCANCODE_KP_RIGHTBRACE      = 185,
-    SDL_SCANCODE_KP_TAB             = 186,
-    SDL_SCANCODE_KP_BACKSPACE       = 187,
-    SDL_SCANCODE_KP_A               = 188,
-    SDL_SCANCODE_KP_B               = 189,
-    SDL_SCANCODE_KP_C               = 190,
-    SDL_SCANCODE_KP_D               = 191,
-    SDL_SCANCODE_KP_E               = 192,
-    SDL_SCANCODE_KP_F               = 193,
-    SDL_SCANCODE_KP_XOR             = 194,
-    SDL_SCANCODE_KP_POWER           = 195,
-    SDL_SCANCODE_KP_PERCENT         = 196,
-    SDL_SCANCODE_KP_LESS            = 197,
-    SDL_SCANCODE_KP_GREATER         = 198,
-    SDL_SCANCODE_KP_AMPERSAND       = 199,
-    SDL_SCANCODE_KP_DBLAMPERSAND    = 200,
-    SDL_SCANCODE_KP_VERTICALBAR     = 201,
-    SDL_SCANCODE_KP_DBLVERTICALBAR  = 202,
-    SDL_SCANCODE_KP_COLON           = 203,
-    SDL_SCANCODE_KP_HASH            = 204,
-    SDL_SCANCODE_KP_SPACE           = 205,
-    SDL_SCANCODE_KP_AT              = 206,
-    SDL_SCANCODE_KP_EXCLAM          = 207,
-    SDL_SCANCODE_KP_MEMSTORE        = 208,
-    SDL_SCANCODE_KP_MEMRECALL       = 209,
-    SDL_SCANCODE_KP_MEMCLEAR        = 210,
-    SDL_SCANCODE_KP_MEMADD          = 211,
-    SDL_SCANCODE_KP_MEMSUBTRACT     = 212,
-    SDL_SCANCODE_KP_MEMMULTIPLY     = 213,
-    SDL_SCANCODE_KP_MEMDIVIDE       = 214,
-    SDL_SCANCODE_KP_PLUSMINUS       = 215,
-    SDL_SCANCODE_KP_CLEAR           = 216,
-    SDL_SCANCODE_KP_CLEARENTRY      = 217,
-    SDL_SCANCODE_KP_BINARY          = 218,
-    SDL_SCANCODE_KP_OCTAL           = 219,
-    SDL_SCANCODE_KP_DECIMAL         = 220,
-    SDL_SCANCODE_KP_HEXADECIMAL     = 221,
-
-    SDL_SCANCODE_LCTRL  = 224,
-    SDL_SCANCODE_LSHIFT = 225,
-    SDL_SCANCODE_LALT   = 226, /**< alt, option */
-    SDL_SCANCODE_LGUI   = 227, /**< windows, command (apple), meta */
-    SDL_SCANCODE_RCTRL  = 228,
-    SDL_SCANCODE_RSHIFT = 229,
-    SDL_SCANCODE_RALT   = 230, /**< alt gr, option */
-    SDL_SCANCODE_RGUI   = 231, /**< windows, command (apple), meta */
-
-    SDL_SCANCODE_MODE = 257, /**< I'm not sure if this is really not covered
-                              *   by any of the above, but since there's a
-                              *   special KMOD_MODE for it I'm adding it here
-                              */
-
-    /* @} */ /* Usage page 0x07 */
-
-    /**
-     *  \name Usage page 0x0C
-     *
-     *  These values are mapped from usage page 0x0C (USB consumer page).
-     */
-    /* @{ */
-
-    SDL_SCANCODE_AUDIONEXT    = 258,
-    SDL_SCANCODE_AUDIOPREV    = 259,
-    SDL_SCANCODE_AUDIOSTOP    = 260,
-    SDL_SCANCODE_AUDIOPLAY    = 261,
-    SDL_SCANCODE_AUDIOMUTE    = 262,
-    SDL_SCANCODE_MEDIASELECT  = 263,
-    SDL_SCANCODE_WWW          = 264,
-    SDL_SCANCODE_MAIL         = 265,
-    SDL_SCANCODE_CALCULATOR   = 266,
-    SDL_SCANCODE_COMPUTER     = 267,
-    SDL_SCANCODE_AC_SEARCH    = 268,
-    SDL_SCANCODE_AC_HOME      = 269,
-    SDL_SCANCODE_AC_BACK      = 270,
-    SDL_SCANCODE_AC_FORWARD   = 271,
-    SDL_SCANCODE_AC_STOP      = 272,
-    SDL_SCANCODE_AC_REFRESH   = 273,
-    SDL_SCANCODE_AC_BOOKMARKS = 274,
-
-    /* @} */ /* Usage page 0x0C */
-
-    /**
-     *  \name Walther keys
-     *
-     *  These are values that Christian Walther added (for mac keyboard?).
-     */
-    /* @{ */
-
-    SDL_SCANCODE_BRIGHTNESSDOWN = 275,
-    SDL_SCANCODE_BRIGHTNESSUP   = 276,
-    SDL_SCANCODE_DISPLAYSWITCH  = 277, /**< display mirroring/dual display
-                                            switch, video mode switch */
-    SDL_SCANCODE_KBDILLUMTOGGLE = 278,
-    SDL_SCANCODE_KBDILLUMDOWN   = 279,
-    SDL_SCANCODE_KBDILLUMUP     = 280,
-    SDL_SCANCODE_EJECT          = 281,
-    SDL_SCANCODE_SLEEP          = 282,
-
-    SDL_SCANCODE_APP1 = 283,
-    SDL_SCANCODE_APP2 = 284,
-
-    /* @} */ /* Walther keys */
-
-    /**
-     *  \name Usage page 0x0C (additional media keys)
-     *
-     *  These values are mapped from usage page 0x0C (USB consumer page).
-     */
-    /* @{ */
-
-    SDL_SCANCODE_AUDIOREWIND      = 285,
-    SDL_SCANCODE_AUDIOFASTFORWARD = 286,
-
-    /* @} */ /* Usage page 0x0C (additional media keys) */
-
-    /* Add any other keys here. */
-
-    SDL_NUM_SCANCODES = 512 /**< not a key, just marks the number of scancodes
-                                 for array bounds */
-} SDL_Scancode;
-
-typedef enum {
-    KMOD_NONE   = 0x0000,
-    KMOD_LSHIFT = 0x0001,
-    KMOD_RSHIFT = 0x0002,
-    KMOD_LCTRL  = 0x0040,
-    KMOD_RCTRL  = 0x0080,
-    KMOD_LALT   = 0x0100,
-    KMOD_RALT   = 0x0200,
-    KMOD_LGUI   = 0x0400,
-    KMOD_RGUI   = 0x0800,
-    KMOD_NUM    = 0x1000,
-    KMOD_CAPS   = 0x2000,
-    KMOD_MODE   = 0x4000,
-    KMOD_SCROLL = 0x8000,
-
-    KMOD_CTRL  = KMOD_LCTRL | KMOD_RCTRL,
-    KMOD_SHIFT = KMOD_LSHIFT | KMOD_RSHIFT,
-    KMOD_ALT   = KMOD_LALT | KMOD_RALT,
-    KMOD_GUI   = KMOD_LGUI | KMOD_RGUI,
-
-    KMOD_RESERVED = KMOD_SCROLL /* This is for source-level compatibility with SDL 2.0.0. */
-} SDL_Keymod;
+enum KeyMod {
+    KEYMOD_NONE   = 0x0000,
+    KEYMOD_LSHIFT = 0x0001,
+    KEYMOD_RSHIFT = 0x0002,
+    KEYMOD_LCTRL  = 0x0040,
+    KEYMOD_RCTRL  = 0x0080,
+    KEYMOD_LALT   = 0x0100,
+    KEYMOD_RALT   = 0x0200,
+    KEYMOD_LGUI   = 0x0400,
+    KEYMOD_RGUI   = 0x0800,
+    KEYMOD_NUM    = 0x1000,
+    KEYMOD_CAPS   = 0x2000,
+    KEYMOD_MODE   = 0x4000,
+    KEYMOD_SCROLL = 0x8000,
+    KEYMOD_CTRL   = KEYMOD_LCTRL | KEYMOD_RCTRL,
+    KEYMOD_SHIFT  = KEYMOD_LSHIFT | KEYMOD_RSHIFT,
+    KEYMOD_ALT    = KEYMOD_LALT | KEYMOD_RALT,
+    KEYMOD_GUI    = KEYMOD_LGUI | KEYMOD_RGUI,
+};
