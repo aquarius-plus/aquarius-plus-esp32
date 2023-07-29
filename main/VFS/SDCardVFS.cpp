@@ -31,7 +31,7 @@ SDCardVFS &SDCardVFS::instance() {
     return vfs;
 }
 
-void SDCardVFS::init(void) {
+void SDCardVFS::init() {
     ESP_LOGI(TAG, "Initializing SD card");
 
     esp_err_t        ret;
@@ -76,7 +76,7 @@ void SDCardVFS::init(void) {
     sdmmc_card_print_info(stdout, card);
 }
 
-static std::string get_fullpath(const std::string &path) {
+std::string SDCardVFS::getFullPath(const std::string &path) {
     // Compose full path
     std::string result = MOUNT_POINT;
     result += "/";
@@ -142,15 +142,13 @@ int SDCardVFS::open(uint8_t flags, const std::string &path) {
     if (fd == -1)
         return ERR_TOO_MANY_OPEN;
 
-    auto full_path = get_fullpath(path);
+    auto fullPath = getFullPath(path);
     PowerLED::instance().flashStart();
-    FILE *f = fopen(full_path.c_str(), mode);
+    FILE *f = ::fopen(fullPath.c_str(), mode);
     PowerLED::instance().flashStop();
-    int err_no = errno;
-
     if (f == nullptr) {
         uint8_t err = ERR_NOT_FOUND;
-        switch (err_no) {
+        switch (errno) {
             case EACCES: err = ERR_NOT_FOUND; break;
             case EEXIST: err = ERR_EXISTS; break;
             default: err = ERR_NOT_FOUND; break;
@@ -166,7 +164,7 @@ int SDCardVFS::close(int fd) {
         return ERR_PARAM;
     FILE *f = state.fds[fd];
 
-    fclose(f);
+    ::fclose(f);
     state.fds[fd] = nullptr;
     return 0;
 }
@@ -176,9 +174,8 @@ int SDCardVFS::read(int fd, size_t size, void *buf) {
         return ERR_PARAM;
     FILE *f = state.fds[fd];
 
-    // Use RX buffer as temporary storage
     PowerLED::instance().flashStart();
-    int result = (int)fread(buf, 1, size, f);
+    int result = (int)::fread(buf, 1, size, f);
     PowerLED::instance().flashStop();
     return (result < 0) ? ERR_OTHER : result;
 }
@@ -189,7 +186,7 @@ int SDCardVFS::write(int fd, size_t size, const void *buf) {
     FILE *f = state.fds[fd];
 
     PowerLED::instance().flashStart();
-    int result = (int)fwrite(buf, 1, size, f);
+    int result = (int)::fwrite(buf, 1, size, f);
     PowerLED::instance().flashStop();
     return (result < 0) ? ERR_OTHER : result;
 }
@@ -200,7 +197,7 @@ int SDCardVFS::seek(int fd, size_t offset) {
     FILE *f = state.fds[fd];
 
     PowerLED::instance().flashStart();
-    int result = fseek(f, offset, SEEK_SET);
+    int result = ::fseek(f, offset, SEEK_SET);
     PowerLED::instance().flashStop();
     return (result < 0) ? ERR_OTHER : 0;
 }
@@ -211,7 +208,7 @@ int SDCardVFS::tell(int fd) {
     FILE *f = state.fds[fd];
 
     PowerLED::instance().flashStart();
-    int result = ftell(f);
+    int result = ::ftell(f);
     PowerLED::instance().flashStop();
     return (result < 0) ? ERR_OTHER : result;
 }
@@ -246,19 +243,18 @@ DirEnumCtx SDCardVFS::direnum(const std::string &path) {
 }
 
 int SDCardVFS::delete_(const std::string &path) {
-    auto full_path = get_fullpath(path);
+    auto fullPath = getFullPath(path);
 
     PowerLED::instance().flashStart();
-    int result = unlink(full_path.c_str());
+    int result = ::unlink(fullPath.c_str());
     if (result < 0) {
-        result = rmdir(full_path.c_str());
+        result = ::rmdir(fullPath.c_str());
     }
     PowerLED::instance().flashStop();
-    int err_no = errno;
 
     if (result < 0) {
         // Error
-        if (err_no == ENOTEMPTY) {
+        if (errno == ENOTEMPTY) {
             return ERR_NOT_EMPTY;
         } else {
             return ERR_NOT_FOUND;
@@ -267,31 +263,31 @@ int SDCardVFS::delete_(const std::string &path) {
     return 0;
 }
 
-int SDCardVFS::rename(const std::string &path_old, const std::string &path_new) {
-    auto full_old = get_fullpath(path_old);
-    auto full_new = get_fullpath(path_new);
+int SDCardVFS::rename(const std::string &pathOld, const std::string &pathNew) {
+    auto fullOld = getFullPath(pathOld);
+    auto fullNew = getFullPath(pathNew);
 
     PowerLED::instance().flashStart();
-    int result = ::rename(full_old.c_str(), full_new.c_str());
+    int result = ::rename(fullOld.c_str(), fullNew.c_str());
     PowerLED::instance().flashStop();
 
     return (result < 0) ? ERR_NOT_FOUND : 0;
 }
 
 int SDCardVFS::mkdir(const std::string &path) {
-    auto full_path = get_fullpath(path);
+    auto fullPath = getFullPath(path);
 
     PowerLED::instance().flashStart();
-    int result = ::mkdir(full_path.c_str(), 0775);
+    int result = ::mkdir(fullPath.c_str(), 0775);
     PowerLED::instance().flashStop();
 
     return (result < 0) ? ERR_OTHER : 0;
 }
 
 int SDCardVFS::stat(const std::string &path, struct stat *st) {
-    auto full_path = get_fullpath(path);
+    auto fullPath = getFullPath(path);
     PowerLED::instance().flashStart();
-    int result = ::stat(full_path.c_str(), st);
+    int result = ::stat(fullPath.c_str(), st);
     PowerLED::instance().flashStop();
 
     return result < 0 ? ERR_NOT_FOUND : 0;
