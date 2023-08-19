@@ -1,22 +1,21 @@
+// This file is shared between the emulator and ESP32. It needs to be manually copied when changed.
 #include "EspSettingsConsole.h"
-#include <esp_ota_ops.h>
-#include <esp_app_format.h>
-#include <esp_wifi.h>
-#include "PowerLED.h"
-#include "WiFi.h"
-#include "SDCardVFS.h"
-#include <esp_ota_ops.h>
-#include <esp_https_ota.h>
+#ifndef EMULATOR
+#    include <esp_ota_ops.h>
+#    include <esp_app_format.h>
+#    include <esp_wifi.h>
+#    include "WiFi.h"
+#    include "SDCardVFS.h"
+#    include <esp_ota_ops.h>
+#    include <esp_https_ota.h>
 
 static const char *TAG = "settings";
 
-#define MAX_SCAN_AP (20)
-#define UPDATEFILE_NAME "aquarius-plus.bin"
+#    define MAX_SCAN_AP (20)
+#    define UPDATEFILE_NAME "aquarius-plus.bin"
+#endif
 
 EspSettingsConsole::EspSettingsConsole() {
-    tx_buffer   = nullptr;
-    rx_buffer   = nullptr;
-    new_session = true;
 }
 
 EspSettingsConsole &EspSettingsConsole::instance() {
@@ -25,15 +24,20 @@ EspSettingsConsole &EspSettingsConsole::instance() {
 }
 
 void EspSettingsConsole::init() {
+#ifndef EMULATOR
     tx_buffer = xStreamBufferCreate(256, 1);
     rx_buffer = xStreamBufferCreate(256, 1);
     xTaskCreate(_consoleTask, "console", 8192, this, 1, nullptr);
+#else
+    std::thread([&]() { consoleTask(); }).detach();
+#endif
 }
 
 void EspSettingsConsole::newSession() {
     new_session = true;
 
     // Flush any data still in TX buffer
+#ifndef EMULATOR
     for (int i = 0; i < 256; i++) {
         uint8_t data;
         if (xStreamBufferReceive(tx_buffer, &data, 1, 0) == 0)
@@ -43,32 +47,63 @@ void EspSettingsConsole::newSession() {
         uint8_t data = 0;
         xStreamBufferSend(rx_buffer, &data, 1, portMAX_DELAY);
     }
+#else
+    while (!tx_buffer.empty())
+        tx_buffer.pop();
+    rx_buffer.push(0);
+#endif
 }
 
-int EspSettingsConsole::recv(void *buf, size_t size, TickType_t ticksToWait) {
-    return xStreamBufferReceive(tx_buffer, buf, size, ticksToWait);
+int EspSettingsConsole::recv(void *buf, size_t size) {
+#ifndef EMULATOR
+    return xStreamBufferReceive(tx_buffer, buf, size, 0);
+#else
+    int      count = 0;
+    uint8_t *p     = (uint8_t *)buf;
+    while (count < (int)size) {
+        if (tx_buffer.empty())
+            break;
+        p[count++] = tx_buffer.pop();
+    }
+    return count;
+#endif
 }
 
-int EspSettingsConsole::send(const void *buf, size_t size, TickType_t ticksToWait) {
-    return xStreamBufferSend(rx_buffer, buf, size, ticksToWait);
+int EspSettingsConsole::send(const void *buf, size_t size) {
+#ifndef EMULATOR
+    return xStreamBufferSend(rx_buffer, buf, size, 0);
+#else
+    const uint8_t *p = (const uint8_t *)buf;
+    for (int i = 0; i < (int)size; i++) {
+        rx_buffer.push(p[i]);
+    }
+    return (int)size;
+#endif
 }
 
+#ifndef EMULATOR
 void EspSettingsConsole::_consoleTask(void *obj) {
     static_cast<EspSettingsConsole *>(obj)->consoleTask();
     vTaskDelete(nullptr);
 }
+#endif
 
 void EspSettingsConsole::consoleTask() {
     while (1) {
         if (new_session) {
             new_session = false;
 
+#ifndef EMULATOR
             cprintf("\n");
             const esp_partition_t *running = esp_ota_get_running_partition();
             esp_app_desc_t         running_app_info;
             if (esp_ota_get_partition_description(running, &running_app_info) == ESP_OK) {
                 cprintf("Name:%s\nVersion:%s\nCompile date:%s\nCompile time:%s\n", running_app_info.project_name, running_app_info.version, running_app_info.date, running_app_info.time);
             }
+#else
+            extern const char *versionStr;
+            cprintf("Name:%s\nVersion:%s\nCompile date:%s\nCompile time:%s\n", "aquarius-plus-emulator", versionStr, __DATE__, __TIME__);
+#endif
             cprintf("\nType HELP for more info\n");
         }
 
@@ -102,17 +137,32 @@ void EspSettingsConsole::cprintf(const char *fmt, ...) {
     va_start(ap, fmt);
     vsnprintf(tmp, sizeof(tmp), fmt, ap);
     va_end(ap);
+
+#ifndef EMULATOR
     xStreamBufferSend(tx_buffer, tmp, strlen(tmp), portMAX_DELAY);
+#else
+    for (int i = 0; i < (int)strlen(tmp); i++) {
+        cputc(tmp[i]);
+    }
+#endif
 }
 
 void EspSettingsConsole::cputc(char ch) {
+#ifndef EMULATOR
     xStreamBufferSend(tx_buffer, &ch, 1, portMAX_DELAY);
+#else
+    tx_buffer.push(ch);
+#endif
 }
 
 char EspSettingsConsole::cgetc() {
+#ifndef EMULATOR
     uint8_t val;
     xStreamBufferReceive(rx_buffer, &val, 1, portMAX_DELAY);
     return val;
+#else
+    return rx_buffer.pop();
+#endif
 }
 
 void EspSettingsConsole::creadline(char *buf, size_t max_len, bool is_password) {
@@ -161,6 +211,7 @@ void EspSettingsConsole::showHelp() {
 }
 
 void EspSettingsConsole::wifiStatus() {
+#ifndef EMULATOR
     WiFi &wifi       = WiFi::instance();
     auto  wifiStatus = wifi.getStatus();
     cprintf("WiFi status: %s\n", wifi.getStatusStr().c_str());
@@ -202,9 +253,13 @@ void EspSettingsConsole::wifiStatus() {
                 cprintf("DNS     :" IPSTR "\n", IP2STR(&dns_info.ip.u_addr.ip4));
         }
     }
+#else
+    cprintf("Not available on emulator\n");
+#endif
 }
 
 void EspSettingsConsole::wifiSet() {
+#ifndef EMULATOR
     cprintf("Scanning networks\n");
 
     uint16_t         ap_count = MAX_SCAN_AP;
@@ -286,6 +341,9 @@ void EspSettingsConsole::wifiSet() {
     ESP_ERROR_CHECK(esp_wifi_stop());
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
+#else
+    cprintf("Not available on emulator\n");
+#endif
 }
 
 void EspSettingsConsole::showDate() {
@@ -300,6 +358,7 @@ void EspSettingsConsole::showDate() {
 }
 
 void EspSettingsConsole::systemUpdate() {
+#ifndef EMULATOR
     const int              app_desc_offset  = sizeof(esp_image_header_t) + sizeof(esp_image_segment_header_t);
     size_t                 update_size      = 0;
     const esp_partition_t *update_partition = nullptr;
@@ -423,9 +482,13 @@ done:
         cprintf("Error during update, aborting.\n");
     if (ota_handle)
         esp_ota_abort(ota_handle);
+#else
+    cprintf("Not available on emulator\n");
+#endif
 }
 
 void EspSettingsConsole::systemUpdateGitHub() {
+#ifndef EMULATOR
     cprintf("Enter firmware version (GitHub tag, e.g. V0.7):");
     char str[32];
     creadline(str, sizeof(str), false);
@@ -530,4 +593,7 @@ ota_end:
     }
     cprintf("Upgrade failed.\n");
     return;
+#else
+    cprintf("Not available on emulator\n");
+#endif
 }
