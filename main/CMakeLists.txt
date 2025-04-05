@@ -51,7 +51,7 @@ idf_component_register(
 
     EMBED_FILES
         "assets/ovl_font.chr"
-        "../../rom_src/romfs.bin"
+        "assets/romfs.bin"
         "assets/aqp_top.bit.xzh"
         "assets/root_certificates.xzh"
 )
