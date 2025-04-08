@@ -388,7 +388,7 @@ public:
     }
 };
 
-FPGA *getFPGA() {
+FPGA *FPGA::instance() {
     static FPGAInt obj;
     return &obj;
 }

@@ -140,21 +140,21 @@ public:
             extern const uint8_t fpgaImageXzhStart[] asm("_binary_aqp_top_bit_xzh_start");
             extern const uint8_t fpgaImageXzhEnd[] asm("_binary_aqp_top_bit_xzh_end");
             auto                 fpgaImage = xzhDecompress(fpgaImageXzhStart, fpgaImageXzhEnd - fpgaImageXzhStart);
-            result                         = getFPGA()->loadBitstream(fpgaImage.data(), fpgaImage.size());
+            result                         = FPGA::instance()->loadBitstream(fpgaImage.data(), fpgaImage.size());
 #else
             extern const uint8_t fpgaImageStart[] asm("_binary_morphbook_aqplus_impl1_bit_start");
             extern const uint8_t fpgaImageEnd[] asm("_binary_morphbook_aqplus_impl1_bit_end");
             data   = fpgaImageStart;
             length = fpgaImageEnd - fpgaImageStart;
-            result = getFPGA()->loadBitstream(data, length);
+            result = FPGA::instance()->loadBitstream(data, length);
 #endif
         } else {
-            result = getFPGA()->loadBitstream(data, length);
+            result = FPGA::instance()->loadBitstream(data, length);
         }
 
         memset(&coreInfo, 0, sizeof(coreInfo));
         if (result) {
-            getFPGA()->getCoreInfo(&coreInfo);
+            FPGA::instance()->getCoreInfo(&coreInfo);
             applySettings();
         }
         return result;
@@ -206,7 +206,7 @@ public:
     }
 
     void aqpWriteKeybBuffer(uint8_t ch) {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cmd[] = {CMD_WRITE_KBBUF, ch};
@@ -215,7 +215,7 @@ public:
     }
 
     void resetCore() override {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t resetCfg = 0;
@@ -241,7 +241,7 @@ public:
     }
 
     void aqpForceTurbo(bool en) {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cfg   = en ? 1 : 0;
@@ -251,7 +251,7 @@ public:
     }
 
     void aqpUpdateKeybMatrix(uint64_t keybMatrix) {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cmd[9];
@@ -262,7 +262,7 @@ public:
     }
 
     void aqpUpdateHandCtrl(uint8_t hctrl1, uint8_t hctrl2) {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cmd[] = {CMD_SET_HCTRL, hctrl1, hctrl2};
@@ -271,7 +271,7 @@ public:
     }
 
     void aqpSetVideoMode(uint8_t mode) {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cmd[] = {CMD_SET_VIDMODE, mode};
@@ -281,7 +281,7 @@ public:
 
 #ifdef CONFIG_MACHINE_TYPE_AQPLUS
     void aqpAqcuireBus() {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cmd[] = {CMD_BUS_ACQUIRE};
@@ -290,7 +290,7 @@ public:
     }
 
     void aqpReleaseBus() {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cmd[] = {CMD_BUS_RELEASE};
@@ -299,7 +299,7 @@ public:
     }
 
     void aqpWriteMem(uint16_t addr, uint8_t data) {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cmd[] = {CMD_MEM_WRITE, (uint8_t)(addr & 0xFF), (uint8_t)(addr >> 8), data};
@@ -308,7 +308,7 @@ public:
     }
 
     uint8_t aqpReadMem(uint16_t addr) {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cmd[] = {CMD_MEM_READ, (uint8_t)(addr & 0xFF), (uint8_t)(addr >> 8)};
@@ -321,7 +321,7 @@ public:
     }
 
     void aqpWriteIO(uint16_t addr, uint8_t data) {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cmd[] = {CMD_IO_WRITE, (uint8_t)(addr & 0xFF), (uint8_t)(addr >> 8), data};
@@ -330,7 +330,7 @@ public:
     }
 
     uint8_t aqpReadIO(uint16_t addr) {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cmd[] = {CMD_IO_READ, (uint8_t)(addr & 0xFF), (uint8_t)(addr >> 8)};
@@ -560,13 +560,13 @@ public:
         aqpWriteKeybBuffer(ch);
     }
 
-    void mouseReport(int dx, int dy, uint8_t buttonMask, int dWheel) override {
+    void mouseReport(int dx, int dy, uint8_t buttonMask, int dWheel, bool absPos) override {
         RecursiveMutexLock lock(mutex);
         // printf("mouse %d %d %d %d\n", dx, dy, buttonMask, dWheel);
 
         float sensitivity = 1.0f / (float)mouseSensitivityDiv;
-        mouseX            = std::max(0.0f, std::min(319.0f, mouseX + (float)(dx * sensitivity)));
-        mouseY            = std::max(0.0f, std::min(199.0f, mouseY + (float)(dy * sensitivity)));
+        mouseX            = std::max(0.0f, std::min(319.0f, absPos ? dx : (mouseX + (float)(dx * sensitivity))));
+        mouseY            = std::max(0.0f, std::min(199.0f, absPos ? dy : (mouseY + (float)(dy * sensitivity))));
         mouseButtons      = buttonMask;
         mousePresent      = true;
         mouseWheel        = mouseWheel + dWheel;
@@ -780,7 +780,7 @@ public:
 
 #ifdef CONFIG_MACHINE_TYPE_AQPLUS
     void takeScreenshot(Menu &menu) {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
 
         menu.drawMessage("Taking screenshot");
@@ -848,7 +848,7 @@ public:
     }
 
     void dumpCartridge(Menu &menu) {
-        auto               fpga = getFPGA();
+        auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
 
         menu.drawMessage("Reading cartridge");

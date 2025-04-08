@@ -12,6 +12,8 @@ struct CoreInfo {
 
 class FPGA {
 public:
+    static FPGA *instance();
+
     virtual void init() = 0;
 
     // FPGA configuration
@@ -35,5 +37,3 @@ public:
     virtual void              spiTx(const void *data, size_t length) = 0;
     virtual void              spiRx(void *buf, size_t length)        = 0;
 };
-
-FPGA *getFPGA();

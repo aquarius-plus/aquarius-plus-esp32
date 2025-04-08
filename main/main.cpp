@@ -74,7 +74,7 @@ void app_main(void) {
             getFileServer()->start();
     }
 
-    getFPGA()->init();
+    FPGA::instance()->init();
     loadFpgaCore(FpgaCoreType::AquariusPlus);
 
     getDisplayOverlay()->init();

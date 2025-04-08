@@ -98,7 +98,7 @@ public:
         overlayVisible = show;
 
         static const uint16_t emptyPal[16] = {0};
-        getFPGA()->setOverlayPalette(overlayVisible ? palette : emptyPal);
+        FPGA::instance()->setOverlayPalette(overlayVisible ? palette : emptyPal);
     }
 
     bool isVisible() override {
@@ -106,7 +106,7 @@ public:
     }
 
     void render() override {
-        getFPGA()->setOverlayText(textBuf);
+        FPGA::instance()->setOverlayText(textBuf);
     }
 
     void reinit() override {
@@ -123,14 +123,14 @@ public:
 
             // Load font
             extern const uint8_t ovlFontStart[] asm("_binary_ovl_font_chr_start");
-            getFPGA()->setOverlayFont(ovlFontStart);
+            FPGA::instance()->setOverlayFont(ovlFontStart);
 
             overlayVisible = false;
             setVisible(overlayVisible);
 
             while (!doReinit) {
                 CoreInfo coreInfo;
-                getFPGA()->getCoreInfo(&coreInfo);
+                FPGA::instance()->getCoreInfo(&coreInfo);
 
                 getMainMenu()->show();
 

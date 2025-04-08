@@ -85,8 +85,8 @@ public:
         bi.knownDevices.clear();
         bi.otherDevices.clear();
 
-        auto bt      = getBluetooth();
-        bi           = bt->getBluetoothInfo();
+        auto bt = getBluetooth();
+        bi      = bt->getBluetoothInfo();
         // bool enabled = bt->getEnabled();
 
         items.clear();
