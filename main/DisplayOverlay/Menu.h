@@ -10,7 +10,7 @@ enum class MenuItemType {
     separator,
 };
 
-struct Menu;
+class Menu;
 
 struct MenuItem {
     MenuItem(MenuItemType _type, const std::string &_name = "")

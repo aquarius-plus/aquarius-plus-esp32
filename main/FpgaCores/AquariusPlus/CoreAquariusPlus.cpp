@@ -27,23 +27,6 @@ enum {
 };
 
 enum {
-    // Aq+ command
-    CMD_RESET           = 0x01,
-    CMD_FORCE_TURBO     = 0x02,
-    CMD_SET_KEYB_MATRIX = 0x10,
-    CMD_SET_HCTRL       = 0x11,
-    CMD_WRITE_KBBUF     = 0x12,
-    CMD_BUS_ACQUIRE     = 0x20,
-    CMD_BUS_RELEASE     = 0x21,
-    CMD_MEM_WRITE       = 0x22,
-    CMD_MEM_READ        = 0x23,
-    CMD_IO_WRITE        = 0x24,
-    CMD_IO_READ         = 0x25,
-    CMD_ROM_WRITE       = 0x30,
-    CMD_SET_VIDMODE     = 0x40,
-};
-
-enum {
     FLAG_HAS_Z80       = (1 << 0),
     FLAG_MOUSE_SUPPORT = (1 << 1),
     FLAG_VIDEO_TIMING  = (1 << 2),
