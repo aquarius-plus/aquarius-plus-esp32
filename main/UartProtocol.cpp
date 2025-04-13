@@ -1,42 +1,70 @@
 #include "UartProtocol.h"
 
-#include <driver/uart.h>
+#include <algorithm>
 #include <esp_ota_ops.h>
-#include <esp_app_format.h>
+#ifndef EMULATOR
+#include <driver/uart.h>
+#else
+#include "EmuState.h"
+#endif
 
 #include "VFS.h"
 #include "Keyboard.h"
 #include "FpgaCore.h"
 
+#ifndef EMULATOR
 static const char *TAG = "UartProtocol";
 
 #define UART_NUM (UART_NUM_1)
 #define BUF_SIZE (1024)
-#define MAX_FDS  (10)
-#define MAX_DDS  (10)
+#endif
+
+#define MAX_FDS (10)
+#define MAX_DDS (10)
 
 #define ESP_PREFIX "esp:"
 
 #if 0
+#ifndef EMULATOR
 #define DBGF(...) ESP_LOGI(TAG, __VA_ARGS__)
+#else
+#define DBGF(...) printf(__VA_ARGS__)
+#endif
 #else
 #define DBGF(...)
 #endif
 
+#ifdef EMULATOR
+#ifndef _WIN32
+static inline std::string toUpper(std::string s) {
+    for (auto &ch : s)
+        ch = toupper(ch);
+    return s;
+}
+#endif
+#endif
+
 class UartProtocolInt : public UartProtocol {
 public:
+#ifndef EMULATOR
     QueueHandle_t uartQueue;
-    std::string   currentPath;
-    uint8_t       rxBuf[16 + 0x10000];
-    int           rxBufIdx = -1;
     bool          rxEscape = false;
     uint8_t       txBuf[256];
     int           txBufIdx = 0;
-    VFS          *fdVfs[MAX_FDS];
-    uint8_t       fds[MAX_FDS];
-    DirEnumCtx    deCtxs[MAX_DDS];
-    int           deIdx[MAX_DDS];
-    const char   *newPath = nullptr;
+#else
+    uint8_t  txBuf[16 + 0x10000];
+    unsigned txBufWrIdx = 0;
+    unsigned txBufRdIdx = 0;
+    unsigned txBufCnt   = 0;
+#endif
+    std::string currentPath;
+    uint8_t     rxBuf[16 + 0x10000];
+    int         rxBufIdx = -1;
+    VFS        *fdVfs[MAX_FDS];
+    uint8_t     fds[MAX_FDS];
+    DirEnumCtx  deCtxs[MAX_DDS];
+    int         deIdx[MAX_DDS];
+    const char *newPath = nullptr;
 
     UartProtocolInt() {
         for (int i = 0; i < MAX_FDS; i++) {
@@ -50,6 +78,7 @@ public:
     }
 
     void init() override {
+#ifndef EMULATOR
         // Initialize UART to FPGA
         uart_config_t uart_config = {
             .baud_rate           = CONFIG_UARTPROTOCOL_BAUDRATE,
@@ -69,16 +98,65 @@ public:
         uint32_t baudrate;
         ESP_ERROR_CHECK(uart_get_baudrate(UART_NUM, &baudrate));
         ESP_LOGI(TAG, "Actual baudrate: %lu", baudrate);
+#endif
 
         getEspVFS()->init();
         getHttpVFS()->init();
         getTcpVFS()->init();
 
+#ifndef EMULATOR
         if (xTaskCreate(_uartEventTask, "uartEvent", 6144, this, 1, nullptr) != pdPASS) {
             ESP_LOGE(TAG, "Error creating uartEvent task");
         }
+#endif
     }
 
+#ifdef EMULATOR
+    std::string getCurrentPath() override {
+        return currentPath;
+    }
+
+    void writeData(uint8_t data) override {
+        receivedByte(data);
+    }
+
+    void writeCtrl(uint8_t data) override {
+        if (data & 0x80) {
+            rxBufIdx = 0;
+        }
+    }
+
+    uint8_t readData() override {
+        int data = txFifoRead();
+        if (data < 0) {
+            printf("esp32_read_data - Empty!\n");
+            return 0;
+        }
+        return data;
+    }
+
+    uint8_t readCtrl() override {
+        uint8_t result = 0;
+        if (txBufCnt > 0) {
+            result |= 1;
+        }
+        return result;
+    }
+
+    int txFifoRead() {
+        int result = -1;
+        if (txBufCnt > 0) {
+            result = txBuf[txBufRdIdx++];
+            txBufCnt--;
+            if (txBufRdIdx >= sizeof(txBuf)) {
+                txBufRdIdx = 0;
+            }
+        }
+        return result;
+    }
+#endif
+
+#ifndef EMULATOR
     static void _uartEventTask(void *param) { static_cast<UartProtocolInt *>(param)->uartEventTask(); }
 
     void uartEventTask() {
@@ -143,30 +221,47 @@ public:
             }
         }
     }
-
+#endif
     void txBufFlush() {
+#ifndef EMULATOR
         if (txBufIdx > 0) {
             // ESP_LOG_BUFFER_HEXDUMP(TAG, txBuf, txBufIdx, ESP_LOG_INFO);
             uart_write_bytes(UART_NUM, txBuf, txBufIdx);
         }
         txBufIdx = 0;
+#endif
     }
+#ifndef EMULATOR
     void txBufPush(uint8_t val) {
         txBuf[txBufIdx++] = val;
         if (txBufIdx >= sizeof(txBuf))
             txBufFlush();
     }
+#endif
     void txStart() override {
+#ifndef EMULATOR
         // Aq+ can't handle this for now:
         // txBufPush(0x7E);
+#endif
     }
     void txWrite(uint8_t data) override {
+#ifndef EMULATOR
         if (data == 0x7D || data == 0x7E) {
             txBufPush(0x7D);
             txBufPush(data ^ 0x20);
         } else {
             txBufPush(data);
         }
+#else
+        if (txBufCnt >= sizeof(txBuf))
+            return;
+
+        txBuf[txBufWrIdx++] = data;
+        txBufCnt++;
+        if (txBufWrIdx >= sizeof(txBuf)) {
+            txBufWrIdx = 0;
+        }
+#endif
     }
     void txWrite(const void *buf, size_t length) override {
         auto p = static_cast<const uint8_t *>(buf);
@@ -508,6 +603,14 @@ public:
             fdVfs[fd] = vfs;
             fds[fd]   = vfs_fd;
             txWrite(fd);
+
+#ifdef EMULATOR
+            FileInfo tmp;
+            tmp.flags  = flags;
+            tmp.name   = pathArg;
+            tmp.offset = 0;
+            fi.insert(std::make_pair(fd, tmp));
+#endif
         }
     }
     void cmdClose(uint8_t fd) {
@@ -521,6 +624,13 @@ public:
 
         txWrite(fdVfs[fd]->close(fds[fd]));
         fdVfs[fd] = nullptr;
+
+#ifdef EMULATOR
+        auto it = fi.find(fd);
+        if (it != fi.end()) {
+            fi.erase(it);
+        }
+#endif
     }
     void cmdRead(uint8_t fd, uint16_t size) {
         DBGF("READ(fd=%u, size=%u)", fd, size);
@@ -539,6 +649,10 @@ public:
             txWrite((result >> 0) & 0xFF);
             txWrite((result >> 8) & 0xFF);
             txWrite(rxBuf, result);
+
+#ifdef EMULATOR
+            fi[fd].offset += result;
+#endif
         }
     }
     void cmdReadLine(uint8_t fd, uint16_t size) {
@@ -563,6 +677,10 @@ public:
                 txWrite(*(p++));
             }
             txWrite(0);
+
+#ifdef EMULATOR
+            fi[fd].offset = fdVfs[fd]->tell(fds[fd]);
+#endif
         }
     }
     void cmdWrite(uint8_t fd, uint16_t size, const void *data) {
@@ -581,6 +699,10 @@ public:
             txWrite(0);
             txWrite((result >> 0) & 0xFF);
             txWrite((result >> 8) & 0xFF);
+
+#ifdef EMULATOR
+            fi[fd].offset += result;
+#endif
         }
     }
     void cmdSeek(uint8_t fd, uint32_t offset) {
@@ -593,6 +715,10 @@ public:
         }
 
         txWrite(fdVfs[fd]->seek(fds[fd], offset));
+
+#ifdef EMULATOR
+        fi[fd].offset = fdVfs[fd]->tell(fds[fd]);
+#endif
     }
     void cmdTell(uint8_t fd) {
         DBGF("TELL(fd=%u)", fd);
@@ -670,6 +796,13 @@ public:
             deCtxs[dd] = deCtx;
             deIdx[dd]  = skipCount;
             txWrite(dd);
+
+#ifdef EMULATOR
+            DirInfo tmp;
+            tmp.name   = pathArg;
+            tmp.offset = 0;
+            di.insert(std::make_pair(dd, tmp));
+#endif
         }
     }
     void cmdCloseDir(uint8_t dd) {
@@ -682,6 +815,13 @@ public:
         }
         deCtxs[dd] = nullptr;
         txWrite(0);
+
+#ifdef EMULATOR
+        auto it = di.find(dd);
+        if (it != di.end()) {
+            di.erase(it);
+        }
+#endif
     }
     void cmdReadDir(uint8_t dd) {
         DBGF("READDIR(dd=%u)", dd);
@@ -711,6 +851,10 @@ public:
         txWrite((de.size >> 24) & 0xFF);
         txWrite(de.filename.c_str(), de.filename.size());
         txWrite(0);
+
+#ifdef EMULATOR
+        di[dd].offset++;
+#endif
     }
     void cmdDelete(const char *pathArg) {
         DBGF("DELETE(path='%s')", pathArg);
@@ -796,7 +940,13 @@ public:
         if (result < 0)
             return;
 
+#ifdef __APPLE__
+        time_t t = st.st_mtimespec.tv_sec;
+#elif _WIN32
+        time_t t = st.st_mtime;
+#else
         time_t t = st.st_mtim.tv_sec;
+#endif
 
         struct tm *tm       = localtime(&t);
         uint16_t   fat_time = (tm->tm_hour << 11) | (tm->tm_min << 5) | (tm->tm_sec / 2);
@@ -826,6 +976,11 @@ public:
 
         closeAllDescriptors();
         txWrite(0);
+
+#ifdef EMULATOR
+        fi.clear();
+        di.clear();
+#endif
     }
     void cmdLoadFpga(const char *pathArg) {
         DBGF("LOADFPGA(path='%s')", pathArg);
@@ -866,7 +1021,11 @@ public:
 
             printf("Loading bitstream: %s (%u bytes)\n", pathArg, (unsigned)st.st_size);
 
+#ifdef EMULATOR
+            auto newCore = loadFpgaCore(FpgaCoreType::AquariusPlus, path.c_str(), st.st_size);
+#else
             auto newCore = loadFpgaCore(FpgaCoreType::AquariusPlus, buf, st.st_size);
+#endif
             if (!newCore) {
                 printf("Failed! Loading default bitstream\n");
 
@@ -942,6 +1101,25 @@ public:
         // Compose resolved path
         std::string result;
         for (auto &part : parts) {
+
+#ifdef EMULATOR
+#ifndef _WIN32
+            // Handle case-sensitive host file systems
+            auto curPartUpper = toUpper(part);
+            if (*vfs == getSDCardVFS()) {
+                auto [deResult, deCtx] = (*vfs)->direnum(result, 0);
+                if (deResult == 0) {
+                    for (auto &dee : *deCtx) {
+                        if (toUpper(dee.filename) == curPartUpper) {
+                            part = dee.filename;
+                            break;
+                        }
+                    }
+                }
+            }
+#endif
+#endif
+
             if (!result.empty())
                 result += '/';
             result += part;

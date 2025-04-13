@@ -1,7 +1,12 @@
 #include "VFS.h"
 
+#ifndef EMULATOR
 extern const uint8_t romfs_start[] asm("_binary_romfs_bin_start");
 extern const uint8_t romfs_end[] asm("_binary_romfs_bin_end");
+#else
+#include "romfs_contents.h"
+const uint8_t *romfs_end = romfs_start + sizeof(romfs_start);
+#endif
 
 #pragma pack(push, 1)
 struct FileEntry {

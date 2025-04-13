@@ -1,17 +1,38 @@
 #include "VFS.h"
+#ifdef _WIN32
+#include <ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
+#else
 #include <netdb.h>
+#endif
 
 #define MAX_FDS (10)
 
 class TcpVFS : public VFS {
 public:
     bool inUse[MAX_FDS]   = {0};
+#ifndef _WIN32
     int  sockets[MAX_FDS] = {0};
+#else
+    SOCKET sockets[MAX_FDS] = {0};
+#endif
 
     TcpVFS() {
     }
 
     void init() override {
+#ifdef _WIN32
+        WSADATA wsaData;
+        WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
+    }
+
+    static bool startsWith(const std::string &s1, const std::string &s2, bool caseSensitive = false) {
+        if (caseSensitive) {
+            return (strncasecmp(s1.c_str(), s2.c_str(), s2.size()) == 0);
+        } else {
+            return (strncmp(s1.c_str(), s2.c_str(), s2.size()) == 0);
+        }
     }
 
     int open(uint8_t flags, const std::string &_path) override {
@@ -64,15 +85,21 @@ public:
         // Open socket
         auto sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
 
+#ifndef _WIN32
         if (sock == -1) {
+#else
+        if (sock == INVALID_SOCKET) {
+#endif
             freeaddrinfo(ai);
             return ERR_OTHER;
         }
 
+#ifndef _WIN32
         if (fcntl(sock, F_SETFL, fcntl(sock, F_GETFL) | O_NONBLOCK) == -1) {
             ::close(sock);
             return ERR_OTHER;
         }
+#endif
 
         printf("Socket opened!\n");
 
@@ -81,6 +108,7 @@ public:
         freeaddrinfo(ai);
 
         if (err != 0) {
+#ifndef _WIN32
             if (errno == EINPROGRESS) {
                 struct timeval tv;
                 tv.tv_sec  = 5;
@@ -97,9 +125,15 @@ public:
                     return ERR_OTHER;
                 }
 
-            } else {
+            } else
+#endif
+            {
                 printf("Error connecting to host!\n");
+#ifndef _WIN32
                 ::close(sock);
+#else
+                ::closesocket(sock);
+#endif
                 return ERR_NOT_FOUND;
             }
         }
@@ -120,17 +154,32 @@ public:
         if (size == 0)
             return 0;
 
+#ifdef _WIN32
+        {
+            u_long avail = 0;
+            ioctlsocket(sock, FIONREAD, &avail);
+            if (avail == 0)
+                return 0;
+            if (avail < size)
+                size = avail;
+        }
+        int len = recv(sock, (char *)buf, (int)size, 0);
+#else
         int len = recv(sock, buf, size, 0);
+#endif
+
         if (len == 0)
             return ERR_EOF;
 
         if (len < 0) {
+#ifndef _WIN32
             if (errno == EINPROGRESS || errno == EAGAIN || errno == EWOULDBLOCK) {
                 return 0; // Not an error
             }
             if (errno == ENOTCONN) {
                 return ERR_EOF;
             }
+#endif
             return ERR_OTHER;
         }
         return len;
@@ -150,8 +199,17 @@ public:
         const char *data     = (const char *)buf;
         while (to_write > 0) {
             int written = send(sock, data + (size - to_write), to_write, 0);
+#ifndef _WIN32
             if (written < 0 && errno != EINPROGRESS && errno != EAGAIN && errno != EWOULDBLOCK)
                 return ERR_OTHER;
+#else
+            if (written < 0) {
+                int err = WSAGetLastError();
+                if (err == WSAENOTCONN)
+                    return ERR_EOF;
+                return ERR_OTHER;
+            }
+#endif
 
             if (written > 0)
                 to_write -= written;
@@ -164,7 +222,11 @@ public:
 
         if (fd >= MAX_FDS || !inUse[fd])
             return ERR_PARAM;
+#ifndef _WIN32
         ::close(sockets[fd]);
+#else
+        ::closesocket(sockets[fd]);
+#endif
         inUse[fd]   = false;
         sockets[fd] = -1;
 

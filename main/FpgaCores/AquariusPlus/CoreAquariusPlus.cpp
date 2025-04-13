@@ -118,7 +118,13 @@ public:
 
     bool loadBitstream(const void *data, size_t length) override {
         bool result = false;
+#ifdef EMULATOR
         if (data == nullptr) {
+            data = "aqplus.core";
+        }
+#endif
+        if (data == nullptr) {
+#ifndef EMULATOR
 #ifdef CONFIG_MACHINE_TYPE_AQPLUS
             extern const uint8_t fpgaImageXzhStart[] asm("_binary_aqp_top_bit_xzh_start");
             extern const uint8_t fpgaImageXzhEnd[] asm("_binary_aqp_top_bit_xzh_end");
@@ -130,6 +136,7 @@ public:
             data   = fpgaImageStart;
             length = fpgaImageEnd - fpgaImageStart;
             result = FPGA::instance()->loadBitstream(data, length);
+#endif
 #endif
         } else {
             result = FPGA::instance()->loadBitstream(data, length);
@@ -545,7 +552,18 @@ public:
 
     void mouseReport(int dx, int dy, uint8_t buttonMask, int dWheel, bool absPos) override {
         RecursiveMutexLock lock(mutex);
-        // printf("mouse %d %d %d %d\n", dx, dy, buttonMask, dWheel);
+
+        if (absPos) {
+            if (dx < 0 || dy < 0)
+                return;
+
+            dy -= 32;
+            if (!videoTimingMode)
+                dx -= 32;
+
+            dy /= 2;
+            dx /= 2;
+        }
 
         float sensitivity = 1.0f / (float)mouseSensitivityDiv;
         mouseX            = std::max(0.0f, std::min(319.0f, absPos ? dx : (mouseX + (float)(dx * sensitivity))));

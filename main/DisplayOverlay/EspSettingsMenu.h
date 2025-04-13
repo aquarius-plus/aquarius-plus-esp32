@@ -1,18 +1,20 @@
 #pragma once
 
 #include "Menu.h"
+#include "KeyboardLayoutMenu.h"
+#include "Keyboard.h"
+#ifndef EMULATOR
 #include "WiFiMenu.h"
 #include "BluetoothMenu.h"
 #include "TimeZoneMenu.h"
-#include "KeyboardLayoutMenu.h"
 #include "GitHubUpdateMenu.h"
 #include "SdCardUpdateMenu.h"
 #include "EspStatsMenu.h"
 #include "FileServer.h"
-#include "Keyboard.h"
 
 static WiFiMenu      wifiMenu;
 static BluetoothMenu btMenu;
+#endif
 
 //////////////////////////////////////////////////////////////////////////////
 // Esp settings menu
@@ -24,6 +26,7 @@ public:
 
     void onUpdate() override {
         items.clear();
+#ifndef EMULATOR
         {
             auto &item   = items.emplace_back(MenuItemType::subMenu, "Wi-Fi");
             item.onEnter = []() { wifiMenu.show(); };
@@ -65,6 +68,7 @@ public:
                 setNeedsUpdate();
             };
         }
+#endif
         {
             char tmp[40];
             snprintf(tmp, sizeof(tmp), "Keyboard layout: %s", Keyboard::instance()->getKeyLayoutName(Keyboard::instance()->getKeyLayout()).c_str());
@@ -77,6 +81,7 @@ public:
             };
         }
         items.emplace_back(MenuItemType::separator);
+#ifndef EMULATOR
         {
             auto &item   = items.emplace_back(MenuItemType::subMenu, "System update from GitHub");
             item.onEnter = []() {
@@ -91,6 +96,7 @@ public:
                 subMenu.show();
             };
         }
+#endif
         {
             auto &item   = items.emplace_back(MenuItemType::subMenu, "Factory reset");
             item.onEnter = [&]() {
@@ -105,6 +111,7 @@ public:
                 }
             };
         }
+#ifndef EMULATOR
         items.emplace_back(MenuItemType::separator);
         {
             auto &item   = items.emplace_back(MenuItemType::subMenu, "ESP stats");
@@ -113,5 +120,6 @@ public:
                 subMenu.show();
             };
         }
+#endif
     }
 };

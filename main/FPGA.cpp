@@ -1,6 +1,10 @@
 #include "FPGA.h"
-#include <driver/spi_master.h>
 #include "Keyboard.h"
+#ifdef EMULATOR
+#include "EmuState.h"
+#else
+
+#include <driver/spi_master.h>
 
 static const char *TAG = "FPGA";
 
@@ -12,15 +16,19 @@ static const char *TAG = "FPGA";
 
 #define MAX_TRANSFER_SIZE (1024)
 
+#endif
+
 enum {
     STATUS_KEYB = (1 << 0),
 };
 
 class FPGAInt : public FPGA {
 public:
-    SemaphoreHandle_t   mutex;
+    SemaphoreHandle_t mutex;
+#ifndef EMULATOR
     spi_device_handle_t cfgSpiDev;
     spi_device_handle_t cmdSpiDev;
+#endif
 
     FPGAInt() {
     }
@@ -29,6 +37,7 @@ public:
         // Create semaphore for allowing to call FPGA function from different threads
         mutex = xSemaphoreCreateRecursiveMutex();
 
+#ifndef EMULATOR
         // Configure SPI bus
         spi_bus_config_t bus_config = {
             .mosi_io_num     = IOPIN_SPI_MOSI,
@@ -108,12 +117,19 @@ public:
             gpio_install_isr_service(0);
             gpio_isr_handler_add(IOPIN_SPI_NOTIFY, spiNotifyIrqHandler, this);
         }
+#endif
     }
 
     bool loadBitstream(const void *data, size_t length) override {
         RecursiveMutexLock lock(mutex);
         ESP_LOGI(TAG, "Starting configuration");
 
+#ifdef EMULATOR
+        EmuState::loadCore((const char *)data);
+        if (EmuState::get())
+            return true;
+        return false;
+#else
 #ifdef CONFIG_MACHINE_TYPE_AQPLUS
         // Set FPGA INIT# as input
         gpio_set_direction(IOPIN_FPGA_INIT_B, GPIO_MODE_INPUT);
@@ -164,8 +180,10 @@ public:
 #endif
 
         return true;
+#endif
     }
 
+#ifndef EMULATOR
     void cfgTx(const void *data, size_t length) {
         unsigned       remaining = length;
         const uint8_t *p         = (const uint8_t *)data;
@@ -183,12 +201,21 @@ public:
             remaining -= txsize;
         }
     }
+#endif
 
     void spiSel(bool enable) override {
+#ifndef EMULATOR
         gpio_set_level(IOPIN_SPI_SSEL_N, !enable);
+#else
+        auto emuState = EmuState::get();
+        if (emuState) {
+            emuState->spiSel(enable);
+        }
+#endif
     }
 
     void spiTx(const void *data, size_t length) override {
+#ifndef EMULATOR
         unsigned       remaining = length;
         const uint8_t *p         = (const uint8_t *)data;
         while (remaining > 0) {
@@ -204,14 +231,27 @@ public:
             p += txsize;
             remaining -= txsize;
         }
+#else
+        auto emuState = EmuState::get();
+        if (emuState) {
+            emuState->spiTx(data, length);
+        }
+#endif
     }
 
     void spiRx(void *buf, size_t length) override {
+#ifndef EMULATOR
         spi_transaction_t t = {0};
         t.length            = length * 8;
         t.rxlength          = length * 8;
         t.rx_buffer         = buf;
         ESP_ERROR_CHECK(spi_device_transmit(cmdSpiDev, &t));
+#else
+        auto emuState = EmuState::get();
+        if (emuState) {
+            emuState->spiRx(buf, length);
+        }
+#endif
     }
 
 #ifdef CONFIG_MACHINE_TYPE_MORPHBOOK
@@ -241,13 +281,13 @@ public:
 
     bool getCoreInfo(CoreInfo *info) override {
         RecursiveMutexLock lock(mutex);
-        uint8_t            rxData[8];
 
         bool ok = false;
 
         for (int i = 0; i < 10 && !ok; i++) {
             // Sysinfo
             {
+                uint8_t rxData[8];
                 uint8_t cmd[] = {CMD_GET_SYSINFO, 0};
                 spiSel(true);
                 spiTx(cmd, sizeof(cmd));
@@ -324,6 +364,7 @@ public:
         spiSel(false);
     }
 
+#ifndef EMULATOR
     uint8_t getStatus() {
         RecursiveMutexLock lock(mutex);
         spiSel(true);
@@ -355,6 +396,7 @@ public:
 #endif
         }
     }
+#endif
 
     SemaphoreHandle_t getMutex() override {
         return mutex;

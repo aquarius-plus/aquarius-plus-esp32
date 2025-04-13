@@ -2,7 +2,11 @@
 #include "FPGA.h"
 #include "Menus.h"
 
+#ifndef EMULATOR
 extern const uint8_t ovlFontStart[] asm("_binary_ovl_font_chr_start");
+#else
+#include "ovl_font.h"
+#endif
 
 class DisplayOverlayInt : public DisplayOverlay {
 public:
