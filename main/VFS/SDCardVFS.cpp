@@ -245,6 +245,25 @@ public:
         return mapFatFsResult(res);
     }
 
+    int lseek(int fd, int offset, int whence) {
+        if (fd >= MAX_FDS || fds[fd] == nullptr || whence < 0 || whence > 2)
+            return ERR_PARAM;
+
+        if (whence == 1) // SEEK_CUR
+            offset += f_tell(fds[fd]);
+        else if (whence == 2) // SEEK_END
+            offset += f_size(fds[fd]);
+
+        if (offset < 0)
+            offset = 0;
+
+        FRESULT res = f_lseek(fds[fd], offset);
+        if (res != FR_OK)
+            return mapFatFsResult(res);
+
+        return f_tell(fds[fd]);
+    }
+
     int tell(int fd) override {
         if (fd >= MAX_FDS || fds[fd] == nullptr)
             return ERR_PARAM;

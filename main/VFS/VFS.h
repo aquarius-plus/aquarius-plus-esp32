@@ -70,6 +70,7 @@ public:
     virtual int readline(int fd, size_t size, void *buf) { return ERR_OTHER; }
     virtual int write(int fd, size_t size, const void *buf) { return ERR_OTHER; }
     virtual int seek(int fd, size_t offset) { return ERR_OTHER; }
+    virtual int lseek(int fd, int offset, int whence) { return ERR_OTHER; }
     virtual int tell(int fd) { return ERR_OTHER; }
 
     // Directory operations

@@ -28,6 +28,7 @@ enum {
     ESPCMD_OPENDIR83   = 0x20, // Open directory in 8.3 mode
     ESPCMD_READLINE    = 0x21, // Read line from file
     ESPCMD_OPENDIREXT  = 0x22, // Open directory with extended options
+    ESPCMD_LSEEK       = 0x23, // Seek in file with offset and whence
     ESPCMD_LOADFPGA    = 0x40, // Load FPGA bitstream
 };
 

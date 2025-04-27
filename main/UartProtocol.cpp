@@ -28,7 +28,15 @@ static const char *TAG = "UartProtocol";
 #ifndef EMULATOR
 #define DBGF(...) ESP_LOGI(TAG, __VA_ARGS__)
 #else
-#define DBGF(...) printf(__VA_ARGS__)
+static void dprintf(const char *fmt, ...) {
+    va_list va;
+    va_start(va, fmt);
+    vprintf(fmt, va);
+    printf("\n");
+    va_end(va);
+}
+
+#define DBGF(...) dprintf(__VA_ARGS__)
 #endif
 #else
 #define DBGF(...)
@@ -354,6 +362,16 @@ public:
                     uint8_t  fd     = rxBuf[1];
                     uint32_t offset = (rxBuf[2] << 0) | (rxBuf[3] << 8) | (rxBuf[4] << 16) | (rxBuf[5] << 24);
                     cmdSeek(fd, offset);
+                    rxBufIdx = 0;
+                }
+                break;
+            }
+            case ESPCMD_LSEEK: {
+                if (rxBufIdx == 7) {
+                    uint8_t fd     = rxBuf[1];
+                    int     offset = (int)((rxBuf[2] << 0) | (rxBuf[3] << 8) | (rxBuf[4] << 16) | (rxBuf[5] << 24));
+                    int     whence = rxBuf[6];
+                    cmdLSeek(fd, offset, whence);
                     rxBufIdx = 0;
                 }
                 break;
@@ -715,6 +733,30 @@ public:
         }
 
         txWrite(fdVfs[fd]->seek(fds[fd], offset));
+
+#ifdef EMULATOR
+        fi[fd].offset = fdVfs[fd]->tell(fds[fd]);
+#endif
+    }
+    void cmdLSeek(uint8_t fd, int offset, int whence) {
+        DBGF("LSEEK(fd=%u, offset=%d, whence=%d)", fd, offset, whence);
+        txStart();
+
+        if (fd >= MAX_FDS || fdVfs[fd] == nullptr) {
+            txWrite(ERR_PARAM);
+            return;
+        }
+
+        int result = fdVfs[fd]->lseek(fds[fd], offset, whence);
+        if (result < 0) {
+            txWrite(result);
+        } else {
+            txWrite(0);
+            txWrite((result >> 0) & 0xFF);
+            txWrite((result >> 8) & 0xFF);
+            txWrite((result >> 16) & 0xFF);
+            txWrite((result >> 24) & 0xFF);
+        }
 
 #ifdef EMULATOR
         fi[fd].offset = fdVfs[fd]->tell(fds[fd]);
