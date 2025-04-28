@@ -19,7 +19,7 @@ class FpgaCore {
 public:
     virtual void resetCore() {}
     virtual bool keyScancode(uint8_t modifiers, unsigned scanCode, bool keyDown) { return false; }
-    virtual void keyChar(uint8_t ch, bool isRepeat) {}
+    virtual void keyChar(uint8_t ch, bool isRepeat, uint8_t modifiers) {}
     virtual void mouseReport(int dx, int dy, uint8_t buttonMask, int dWheel, bool absPos = false) {}
     virtual void gamepadReport(unsigned idx, const GamePadData &data) {}
 

@@ -530,6 +530,7 @@ public:
         DBGF("RESET()");
         closeAllDescriptors();
         currentPath.clear();
+        Keyboard::instance()->setKeyMode(3);
     }
     void cmdVersion() {
         DBGF("VERSION()");

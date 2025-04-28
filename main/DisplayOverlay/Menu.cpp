@@ -262,7 +262,7 @@ void Menu::drawMessage(const char *msg) {
     auto ovl = getDisplayOverlay();
     ovl->clearScreen();
 
-    int width  = strlen(msg) + 2;
+    int width  = (int)strlen(msg) + 2;
     int height = 3;
 
     int x = (40 - width) / 2;

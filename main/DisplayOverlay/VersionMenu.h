@@ -4,8 +4,10 @@
 #include <esp_ota_ops.h>
 #include "FpgaCore.h"
 
+#ifndef _MSC_VER
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-truncation"
+#endif
 
 class VersionMenu : public Menu {
 public:
@@ -50,4 +52,6 @@ public:
     }
 };
 
+#ifndef _MSC_VER
 #pragma GCC diagnostic pop
+#endif

@@ -4,6 +4,7 @@
 #include "UartProtocol.h"
 #include "VFS.h"
 #include "GameCtrl.h"
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include <nvs_flash.h>
 #include "XzDecompress.h"
@@ -37,17 +38,17 @@ enum {
 class CoreAquariusPlus : public FpgaCore {
 public:
     SemaphoreHandle_t mutex;
-    uint64_t          prevMatrix = 0;
-    uint64_t          keybMatrix = 0;
-    GamePadData       gamePads[2];
-    uint8_t           videoTimingMode   = 0;
-    bool              useT80            = false;
-    bool              forceTurbo        = false;
-    bool              gamepadNavigation = false;
-    bool              bypassStartScreen = false;
-    TimerHandle_t     bypassStartTimer  = nullptr;
-    bool              bypassStartCancel = false;
     CoreInfo          coreInfo;
+    GamePadData       gamePads[2];
+    uint64_t          prevMatrix                    = 0;
+    uint64_t          keybMatrix                    = 0;
+    uint8_t           videoTimingMode               = 0;
+    bool              useT80                        = false;
+    bool              forceTurbo                    = false;
+    bool              gamepadNavigation             = false;
+    bool              bypassStartScreen             = false;
+    TimerHandle_t     bypassStartTimer              = nullptr;
+    bool              bypassStartCancel             = false;
     bool              enableKeyboardHandCtrlMapping = false;
     bool              enableGamePadHandCtrlMapping  = true;
     bool              enableGamePadKeyboardMapping  = false;
@@ -113,7 +114,7 @@ public:
     void onBypassStartTimer() {
         // 'Press' enter key to bypass the Aquarius start screen
         if (!bypassStartCancel)
-            keyChar('\r', false);
+            keyChar('\r', false, 0);
     }
 
     bool loadBitstream(const void *data, size_t length) override {
@@ -200,6 +201,26 @@ public:
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cmd[] = {CMD_WRITE_KBBUF, ch};
+        fpga->spiTx(cmd, sizeof(cmd));
+        fpga->spiSel(false);
+    }
+
+    void aqpWriteKeybBuffer16(uint16_t data) {
+        // | Bit | Description                  |
+        // | --: | ---------------------------- |
+        // |  14 | Scancode(1) / Character(0)   |
+        // |  13 | Scancode key up(0) / down(1) |
+        // |  12 | Repeated                     |
+        // |  11 | Modifier: Gui                |
+        // |  10 | Modifier: Alt                |
+        // |   9 | Modifier: Shift              |
+        // |   8 | Modifier: Ctrl               |
+        // | 7:0 | Character / Scancode         |
+
+        auto               fpga = FPGA::instance();
+        RecursiveMutexLock lock(fpga->getMutex());
+        fpga->spiSel(true);
+        uint8_t cmd[] = {CMD_WRITE_KBBUF16, (uint8_t)(data & 0xFF), (uint8_t)(data >> 8)};
         fpga->spiTx(cmd, sizeof(cmd));
         fpga->spiSel(false);
     }
@@ -406,6 +427,14 @@ public:
     bool keyScancode(uint8_t modifiers, unsigned scanCode, bool keyDown) override {
         RecursiveMutexLock lock(mutex);
 
+        if (scanCode <= 255) {
+            aqpWriteKeybBuffer16(
+                (1 << 14) | // Scancode
+                (keyDown ? (1 << 13) : 0) |
+                (((modifiers >> 4) | (modifiers & 0xF)) << 8) |
+                scanCode);
+        }
+
         // Hand controller emulation
         if (handControllerEmulate(scanCode, keyDown)) {
             updateHandCtrl();
@@ -544,8 +573,17 @@ public:
         return false;
     }
 
-    void keyChar(uint8_t ch, bool isRepeat) override {
+    void keyChar(uint8_t ch, bool isRepeat, uint8_t modifiers) override {
         RecursiveMutexLock lock(mutex);
+        aqpWriteKeybBuffer16(
+            (0 << 14) | // Character
+            (isRepeat ? (1 << 12) : 0) |
+            (((modifiers >> 4) | (modifiers & 0xF)) << 8) |
+            ch);
+
+        uint8_t keyMode = Keyboard::instance()->getKeyMode();
+        if ((keyMode & 4) == 0 && isRepeat)
+            return;
         bypassStartCancel = true;
         aqpWriteKeybBuffer(ch);
     }

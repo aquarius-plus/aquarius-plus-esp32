@@ -253,10 +253,10 @@ public:
         if (pressCounter > 30 && pressCounter % 3 == 0) {
             xQueueSend(keyQueue, &repeat, 0);
 
-            if ((keyMode & 4) != 0 && !getDisplayOverlay()->isVisible()) {
+            if (!getDisplayOverlay()->isVisible()) {
                 auto core = getFpgaCore();
                 if (core)
-                    core->keyChar(repeat, true);
+                    core->keyChar(repeat, true, modifiers);
             }
         }
     }
@@ -367,7 +367,7 @@ public:
                 if (!getDisplayOverlay()->isVisible()) {
                     auto core = getFpgaCore();
                     if (core)
-                        core->keyChar(ch, false);
+                        core->keyChar(ch, false, modifiers);
                 }
             }
             xQueueSend(keyQueue, &ch, 0);
@@ -687,7 +687,7 @@ public:
         if (ch > '~')
             return;
 
-        core->keyChar(ch, false);
+        core->keyChar(ch, false, 0);
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 };
