@@ -39,6 +39,7 @@ idf_component_register(
 
         "FpgaCores/FpgaCore.cpp"
         "FpgaCores/AquariusPlus/CoreAquariusPlus.cpp"
+        "FpgaCores/Aquarius32/CoreAquarius32.cpp"
 
     INCLUDE_DIRS
         "."
@@ -47,7 +48,6 @@ idf_component_register(
         "USB"
         "fatfs"
         "FpgaCores"
-        "FpgaCores/AquariusPlus"
 
     EMBED_FILES
         "assets/ovl_font.chr"

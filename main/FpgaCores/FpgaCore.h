@@ -12,7 +12,8 @@ struct GamePadData {
 };
 
 enum class FpgaCoreType {
-    AquariusPlus,
+    AquariusPlus = 1,
+    Aquarius32   = 2,
 };
 
 class FpgaCore {
@@ -22,17 +23,20 @@ public:
     virtual void keyChar(uint8_t ch, bool isRepeat, uint8_t modifiers) {}
     virtual void mouseReport(int dx, int dy, uint8_t buttonMask, int dWheel, bool absPos = false) {}
     virtual void gamepadReport(unsigned idx, const GamePadData &data) {}
-
-    virtual int uartCommand(uint8_t cmd, const uint8_t *buf, size_t len) { return -1; }
-
-    virtual bool loadBitstream(const void *data, size_t length) = 0;
-
-    virtual void addMainMenuItems(Menu &menu) = 0;
-
-    virtual void getCoreInfo(CoreInfo *coreInfo)                 = 0;
+    virtual int  uartCommand(uint8_t cmd, const uint8_t *buf, size_t len) { return -1; }
+    virtual void addMainMenuItems(Menu &menu)                    = 0;
     virtual bool getGamePadData(unsigned idx, GamePadData &data) = 0;
+
+    static std::shared_ptr<FpgaCore> load(const void *data = nullptr, size_t length = 0);
+    static std::shared_ptr<FpgaCore> loadAqPlus();
+    static void                      unload();
+    static std::shared_ptr<FpgaCore> get();
+    static const CoreInfo           *getCoreInfo();
+
+private:
+    static CoreInfo coreInfo;
 };
 
-std::shared_ptr<FpgaCore> getFpgaCore();
-void                      unloadFpgaCore();
-std::shared_ptr<FpgaCore> loadFpgaCore(FpgaCoreType type, const void *data = nullptr, size_t length = 0);
+// Not to be directly called
+std::shared_ptr<FpgaCore> newCoreAquariusPlus();
+std::shared_ptr<FpgaCore> newCoreAquarius32();

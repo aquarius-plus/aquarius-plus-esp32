@@ -240,7 +240,7 @@ void HIDReportHandlerGamepad::_inputReport(uint8_t reportId, const uint8_t *buf,
     printf("\n");
 #endif
 
-    auto core = getFpgaCore();
+    auto core = FpgaCore::get();
     if (core && gamePadIdx >= 0) {
         core->gamepadReport(gamePadIdx, data);
     }

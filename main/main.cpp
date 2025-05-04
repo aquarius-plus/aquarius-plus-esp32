@@ -85,7 +85,7 @@ void app_main(void) {
 #endif
 
     FPGA::instance()->init();
-    loadFpgaCore(FpgaCoreType::AquariusPlus);
+    FpgaCore::loadAqPlus();
 
     getDisplayOverlay()->init();
 

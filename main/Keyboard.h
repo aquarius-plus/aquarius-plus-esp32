@@ -19,15 +19,13 @@ public:
 #endif
     virtual void handleScancode(unsigned scanCode, bool keyDown) = 0;
 
-    virtual int getKey(TickType_t ticksToWait) = 0;
-    virtual int waitScanCode()                 = 0;
+    virtual void reset(bool enableCtrlMapping = true) = 0;
+    virtual int  getKey(TickType_t ticksToWait)       = 0;
+    virtual int  waitScanCode()                       = 0;
 
     virtual void        setKeyLayout(KeyLayout layout)     = 0;
     virtual KeyLayout   getKeyLayout()                     = 0;
     virtual std::string getKeyLayoutName(KeyLayout layout) = 0;
-
-    virtual void    setKeyMode(uint8_t mode) = 0;
-    virtual uint8_t getKeyMode()             = 0;
 
     virtual void pressKey(uint8_t ch) = 0;
 };

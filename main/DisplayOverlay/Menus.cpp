@@ -34,10 +34,8 @@ public:
 
             char tmp[40];
 
-            CoreInfo coreInfo;
-            getFpgaCore()->getCoreInfo(&coreInfo);
-
-            snprintf(tmp, sizeof(tmp), "%-16s %s", coreInfo.name, strftime_buf);
+            const CoreInfo *coreInfo = FpgaCore::getCoreInfo();
+            snprintf(tmp, sizeof(tmp), "%-16s %s", coreInfo->name, strftime_buf);
             title = tmp;
         }
 
@@ -62,7 +60,7 @@ public:
         items.emplace_back(MenuItemType::separator);
 #endif
 
-        auto fpgaCore = getFpgaCore();
+        auto fpgaCore = FpgaCore::get();
         if (fpgaCore) {
             fpgaCore->addMainMenuItems(*this);
             while (!items.empty() && items.back().type == MenuItemType::separator)

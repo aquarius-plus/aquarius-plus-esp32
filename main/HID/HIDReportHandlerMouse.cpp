@@ -78,7 +78,7 @@ void HIDReportHandlerMouse::_inputReport(uint8_t reportId, const uint8_t *buf, s
             buttonMask |= (1 << i);
     }
 
-    auto core = getFpgaCore();
+    auto core = FpgaCore::get();
     if (core) {
         core->mouseReport(dx, dy, buttonMask, dWheel);
     }

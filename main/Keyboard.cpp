@@ -2,7 +2,6 @@
 #include "FPGA.h"
 #include "FpgaCore.h"
 #include "DisplayOverlay/DisplayOverlay.h"
-#include "AqKeyboardDefs.h"
 #include "USBHost.h"
 
 static const char *TAG = "Keyboard";
@@ -215,11 +214,11 @@ public:
     QueueHandle_t     scanCodeQueue;
     uint8_t           repeat       = 0;
     unsigned          pressCounter = 0;
-    uint8_t           keyMode      = 3;
     SemaphoreHandle_t mutex;
-    KeyLayout         curLayout    = KeyLayout::US;
-    uint8_t           leds         = 0;
-    uint8_t           composeFirst = 0;
+    KeyLayout         curLayout         = KeyLayout::US;
+    uint8_t           leds              = 0;
+    uint8_t           composeFirst      = 0;
+    bool              enableCtrlMapping = true;
 
     KeyboardInt() {
         mutex         = xSemaphoreCreateRecursiveMutex();
@@ -228,16 +227,6 @@ public:
 
         auto timer = xTimerCreate("keyRepeat", pdMS_TO_TICKS(16), pdTRUE, this, _keyRepeatTimer);
         xTimerStart(timer, 0);
-    }
-
-    void setKeyMode(uint8_t mode) override {
-        RecursiveMutexLock lock(mutex);
-        keyMode = mode;
-    }
-
-    uint8_t getKeyMode() override {
-        RecursiveMutexLock lock(mutex);
-        return keyMode;
     }
 
     static void _keyRepeatTimer(TimerHandle_t xTimer) { static_cast<KeyboardInt *>(pvTimerGetTimerID(xTimer))->keyRepeatTimer(); }
@@ -254,7 +243,7 @@ public:
             xQueueSend(keyQueue, &repeat, 0);
 
             if (!getDisplayOverlay()->isVisible()) {
-                auto core = getFpgaCore();
+                auto core = FpgaCore::get();
                 if (core)
                     core->keyChar(repeat, true, modifiers);
             }
@@ -342,6 +331,15 @@ public:
     }
 #endif
 
+    void reset(bool _enableCtrlMapping) override {
+        RecursiveMutexLock lock(mutex);
+        modifiers         = 0;
+        repeat            = 0;
+        pressCounter      = 0;
+        composeFirst      = 0;
+        enableCtrlMapping = _enableCtrlMapping;
+    }
+
     void handleScancode(unsigned scanCode, bool keyDown) override {
         RecursiveMutexLock lock(mutex);
         repeat       = 0;
@@ -355,7 +353,7 @@ public:
         int ch = processScancode(scanCode, keyDown);
 
         bool stopProcessing = false;
-        auto core           = getFpgaCore();
+        auto core           = FpgaCore::get();
         if (core && (!getDisplayOverlay()->isVisible() || !keyDown)) {
             stopProcessing = core->keyScancode(modifiers, scanCode, keyDown);
         }
@@ -365,7 +363,6 @@ public:
                 repeat = ch;
 
                 if (!getDisplayOverlay()->isVisible()) {
-                    auto core = getFpgaCore();
                     if (core)
                         core->keyChar(ch, false, modifiers);
                 }
@@ -533,11 +530,7 @@ public:
             if (scanCode == SCANCODE_TAB && (modifiers & ModLCtrl))
                 ch = 0xFF;
 
-            if (
-                ch == 0 &&
-                scanCode >= SCANCODE_F1 && scanCode <= SCANCODE_KP_PERIOD &&
-                scanCode != SCANCODE_SCROLLLOCK &&
-                scanCode != SCANCODE_NUMLOCK) {
+            if (ch == 0 && scanCode >= SCANCODE_F1 && scanCode <= SCANCODE_KP_PERIOD) {
                 static const uint8_t lut[] = {
                     0x80, // SCANCODE_F1
                     0x81, // SCANCODE_F2
@@ -585,7 +578,7 @@ public:
                 ch = lut[scanCode - SCANCODE_F1];
             }
 
-            if ((modifiers & (ModLCtrl | ModRCtrl)) != 0) {
+            if (enableCtrlMapping && (modifiers & (ModLCtrl | ModRCtrl)) != 0) {
                 if (ch == '@') {
                     ch = 0x80;
                 } else if (ch >= 'a' && ch <= 'z') {
@@ -608,7 +601,7 @@ public:
                     ch           = compose(composeFirst, ch);
                     composeFirst = 0;
 
-                } else if (modifiers & ModLAlt) {
+                } else if (modifiers & ModRAlt) {
                     composeFirst = ch;
                     ch           = 0;
                 }
@@ -660,7 +653,7 @@ public:
     }
 
     void pressKey(uint8_t ch) override {
-        auto core = getFpgaCore();
+        auto core = FpgaCore::get();
         if (!core)
             return;
 

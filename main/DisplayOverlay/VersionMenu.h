@@ -21,22 +21,17 @@ public:
 
         char tmp[37];
 
-        auto fpgaCore = getFpgaCore();
-        if (fpgaCore) {
-            CoreInfo coreInfo;
-            fpgaCore->getCoreInfo(&coreInfo);
-
-            items.emplace_back(MenuItemType::separator, "FPGA core");
-            snprintf(tmp, sizeof(tmp), "Name     :%s", coreInfo.name);
-            items.emplace_back(MenuItemType::subMenu, tmp);
-            snprintf(tmp, sizeof(tmp), "Version  :%u.%02u", coreInfo.versionMajor, coreInfo.versionMinor);
-            items.emplace_back(MenuItemType::subMenu, tmp);
-            snprintf(tmp, sizeof(tmp), "Core type:%02X", coreInfo.coreType);
-            items.emplace_back(MenuItemType::subMenu, tmp);
-            snprintf(tmp, sizeof(tmp), "Flags    :%02X", coreInfo.flags);
-            items.emplace_back(MenuItemType::subMenu, tmp);
-            items.emplace_back(MenuItemType::separator);
-        }
+        const CoreInfo *coreInfo = FpgaCore::getCoreInfo();
+        items.emplace_back(MenuItemType::separator, "FPGA core");
+        snprintf(tmp, sizeof(tmp), "Name     :%s", coreInfo->name);
+        items.emplace_back(MenuItemType::subMenu, tmp);
+        snprintf(tmp, sizeof(tmp), "Version  :%u.%02u", coreInfo->versionMajor, coreInfo->versionMinor);
+        items.emplace_back(MenuItemType::subMenu, tmp);
+        snprintf(tmp, sizeof(tmp), "Core type:%02X", coreInfo->coreType);
+        items.emplace_back(MenuItemType::subMenu, tmp);
+        snprintf(tmp, sizeof(tmp), "Flags    :%02X", coreInfo->flags);
+        items.emplace_back(MenuItemType::subMenu, tmp);
+        items.emplace_back(MenuItemType::separator);
 
         items.emplace_back(MenuItemType::separator, "ESP");
         snprintf(tmp, sizeof(tmp), "Name   :%s", running_app_info.project_name);

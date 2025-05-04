@@ -1,4 +1,5 @@
-#include "CoreAquariusPlus.h"
+#include "Common.h"
+#include "FpgaCore.h"
 #include "FPGA.h"
 #include "Keyboard.h"
 #include "UartProtocol.h"
@@ -13,8 +14,6 @@
 #include "DisplayOverlay/GamepadHandCtrlMappingMenu.h"
 #include "DisplayOverlay/GamepadKeyboardMappingMenu.h"
 #include "DisplayOverlay/FileListMenu.h"
-
-#include "CoreAquariusPlus.h"
 #include "AqKeyboardDefs.h"
 
 enum {
@@ -38,7 +37,6 @@ enum {
 class CoreAquariusPlus : public FpgaCore {
 public:
     SemaphoreHandle_t mutex;
-    CoreInfo          coreInfo;
     GamePadData       gamePads[2];
     uint64_t          prevMatrix                    = 0;
     uint64_t          keybMatrix                    = 0;
@@ -57,6 +55,7 @@ public:
     uint8_t           keybHandCtrl1                 = 0xFF;
     uint8_t           gamePadHandCtrl[2]            = {0xFF, 0xFF};
     bool              warmReset                     = false;
+    uint8_t           keyMode                       = 3;
 
     uint8_t keyboardHandCtrlButtonScanCodes[6] = {
         SCANCODE_INSERT,
@@ -97,10 +96,10 @@ public:
         gamePadButtonHandCtrlButtonIdxs[GCB_DPAD_RIGHT_IDX] = 0;
         gamePadButtonHandCtrlButtonIdxs[GCB_SHARE_IDX]      = 0;
 
-        memset(&coreInfo, 0, sizeof(coreInfo));
-
         mutex            = xSemaphoreCreateRecursiveMutex();
         bypassStartTimer = xTimerCreate("", pdMS_TO_TICKS(CONFIG_BYPASS_START_TIME_MS), pdFALSE, this, _onBypassStartTimer);
+
+        applySettings();
     }
 
     virtual ~CoreAquariusPlus() {
@@ -117,42 +116,10 @@ public:
             keyChar('\r', false, 0);
     }
 
-    bool loadBitstream(const void *data, size_t length) override {
-        bool result = false;
-#ifdef EMULATOR
-        if (data == nullptr) {
-            data = "aqplus.core";
-        }
-#endif
-        if (data == nullptr) {
-#ifndef EMULATOR
-#ifdef CONFIG_MACHINE_TYPE_AQPLUS
-            extern const uint8_t fpgaImageXzhStart[] asm("_binary_aqp_top_bit_xzh_start");
-            extern const uint8_t fpgaImageXzhEnd[] asm("_binary_aqp_top_bit_xzh_end");
-            auto                 fpgaImage = xzhDecompress(fpgaImageXzhStart, fpgaImageXzhEnd - fpgaImageXzhStart);
-            result                         = FPGA::instance()->loadBitstream(fpgaImage.data(), fpgaImage.size());
-#else
-            extern const uint8_t fpgaImageStart[] asm("_binary_morphbook_aqplus_impl1_bit_start");
-            extern const uint8_t fpgaImageEnd[] asm("_binary_morphbook_aqplus_impl1_bit_end");
-            data   = fpgaImageStart;
-            length = fpgaImageEnd - fpgaImageStart;
-            result = FPGA::instance()->loadBitstream(data, length);
-#endif
-#endif
-        } else {
-            result = FPGA::instance()->loadBitstream(data, length);
-        }
-
-        memset(&coreInfo, 0, sizeof(coreInfo));
-        if (result) {
-            FPGA::instance()->getCoreInfo(&coreInfo);
-            applySettings();
-        }
-        return result;
-    }
-
     void applySettings() {
-        if ((coreInfo.flags & FLAG_HAS_Z80) == 0) {
+        auto coreInfo = getCoreInfo();
+
+        if ((coreInfo->flags & FLAG_HAS_Z80) == 0) {
             useT80 = true;
         }
 
@@ -169,7 +136,7 @@ public:
                 videoTimingMode = 0;
             }
 
-            if (coreInfo.flags & FLAG_HAS_Z80) {
+            if (coreInfo->flags & FLAG_HAS_Z80) {
                 if (nvs_get_u8(h, "useT80", &val8) == ESP_OK) {
                     useT80 = val8 != 0;
                 }
@@ -190,7 +157,7 @@ public:
             nvs_close(h);
         }
 #ifdef CONFIG_MACHINE_TYPE_AQPLUS
-        if (coreInfo.flags & FLAG_VIDEO_TIMING)
+        if (coreInfo->flags & FLAG_VIDEO_TIMING)
             aqpSetVideoMode(videoTimingMode);
 #endif
         resetCore();
@@ -201,26 +168,6 @@ public:
         RecursiveMutexLock lock(fpga->getMutex());
         fpga->spiSel(true);
         uint8_t cmd[] = {CMD_WRITE_KBBUF, ch};
-        fpga->spiTx(cmd, sizeof(cmd));
-        fpga->spiSel(false);
-    }
-
-    void aqpWriteKeybBuffer16(uint16_t data) {
-        // | Bit | Description                  |
-        // | --: | ---------------------------- |
-        // |  14 | Scancode(1) / Character(0)   |
-        // |  13 | Scancode key up(0) / down(1) |
-        // |  12 | Repeated                     |
-        // |  11 | Modifier: Gui                |
-        // |  10 | Modifier: Alt                |
-        // |   9 | Modifier: Shift              |
-        // |   8 | Modifier: Ctrl               |
-        // | 7:0 | Character / Scancode         |
-
-        auto               fpga = FPGA::instance();
-        RecursiveMutexLock lock(fpga->getMutex());
-        fpga->spiSel(true);
-        uint8_t cmd[] = {CMD_WRITE_KBBUF16, (uint8_t)(data & 0xFF), (uint8_t)(data >> 8)};
         fpga->spiTx(cmd, sizeof(cmd));
         fpga->spiSel(false);
     }
@@ -427,14 +374,6 @@ public:
     bool keyScancode(uint8_t modifiers, unsigned scanCode, bool keyDown) override {
         RecursiveMutexLock lock(mutex);
 
-        if (scanCode <= 255) {
-            aqpWriteKeybBuffer16(
-                (1 << 14) | // Scancode
-                (keyDown ? (1 << 13) : 0) |
-                (((modifiers >> 4) | (modifiers & 0xF)) << 8) |
-                scanCode);
-        }
-
         // Hand controller emulation
         if (handControllerEmulate(scanCode, keyDown)) {
             updateHandCtrl();
@@ -575,13 +514,6 @@ public:
 
     void keyChar(uint8_t ch, bool isRepeat, uint8_t modifiers) override {
         RecursiveMutexLock lock(mutex);
-        aqpWriteKeybBuffer16(
-            (0 << 14) | // Character
-            (isRepeat ? (1 << 12) : 0) |
-            (((modifiers >> 4) | (modifiers & 0xF)) << 8) |
-            ch);
-
-        uint8_t keyMode = Keyboard::instance()->getKeyMode();
         if ((keyMode & 4) == 0 && isRepeat)
             return;
         bypassStartCancel = true;
@@ -798,9 +730,26 @@ public:
         up->txWrite(gamePads[idx].buttons >> 8);
     }
 
+    void cmdReset() {
+        keyMode = 3;
+    }
+
+    void cmdKeyMode(uint8_t mode) {
+        // DBGF("KEYMODE(mode=0x%02X)", mode);
+        keyMode = mode;
+
+        auto up = UartProtocol::instance();
+        up->txStart();
+        up->txWrite(0);
+    }
+
     int uartCommand(uint8_t cmd, const uint8_t *buf, size_t len) override {
         RecursiveMutexLock lock(mutex);
         switch (cmd) {
+            case ESPCMD_RESET: {
+                cmdReset();
+                return 1;
+            }
             case ESPCMD_GETMOUSE: {
                 cmdGetMouse();
                 return 1;
@@ -808,6 +757,13 @@ public:
             case ESPCMD_GETGAMECTRL: {
                 if (len == 1) {
                     cmdGetGameCtrl(buf[0]);
+                    return 1;
+                }
+                return 0;
+            }
+            case ESPCMD_KEYMODE: {
+                if (len == 1) {
+                    cmdKeyMode(buf[0]);
                     return 1;
                 }
                 return 0;
@@ -945,7 +901,8 @@ public:
 #endif
 
     std::string getPresetPath(std::string presetType) {
-        return std::string("/config/esp32/") + coreInfo.name + "/" + presetType;
+        auto coreInfo = getCoreInfo();
+        return std::string("/config/esp32/") + coreInfo->name + "/" + presetType;
     }
 
     void savePreset(Menu &menu, std::string presetType, const void *buf, size_t size) {
@@ -985,6 +942,7 @@ public:
     }
 
     void addMainMenuItems(Menu &menu) override {
+        auto coreInfo = getCoreInfo();
         {
             auto &item   = menu.items.emplace_back(MenuItemType::subMenu, "Reset CPU (CTRL-ESC)");
             item.onEnter = [this]() {
@@ -1054,7 +1012,7 @@ public:
         }
         menu.items.emplace_back(MenuItemType::separator);
 #ifdef CONFIG_MACHINE_TYPE_AQPLUS
-        if (coreInfo.flags & FLAG_AQPLUS) {
+        if (coreInfo->flags & FLAG_AQPLUS) {
             {
                 auto &item   = menu.items.emplace_back(MenuItemType::subMenu, "Screenshot (text)");
                 item.onEnter = [this, &menu]() { takeScreenshot(menu); };
@@ -1066,7 +1024,7 @@ public:
             menu.items.emplace_back(MenuItemType::separator);
         }
 #endif
-        if (coreInfo.flags & FLAG_FORCE_TURBO) {
+        if (coreInfo->flags & FLAG_FORCE_TURBO) {
             auto &item  = menu.items.emplace_back(MenuItemType::onOff, "Force turbo mode");
             item.setter = [this](int newVal) {
                 forceTurbo = (newVal != 0);
@@ -1082,7 +1040,7 @@ public:
             };
             item.getter = [this]() { return forceTurbo ? 1 : 0; };
         }
-        if (coreInfo.flags & FLAG_MOUSE_SUPPORT) {
+        if (coreInfo->flags & FLAG_MOUSE_SUPPORT) {
             auto &item  = menu.items.emplace_back(MenuItemType::percentage, "Mouse sensitivity");
             item.setter = [this](int newVal) {
                 newVal = std::max(1, std::min(newVal, 8));
@@ -1100,7 +1058,7 @@ public:
             };
             item.getter = [this]() { return mouseSensitivityDiv; };
         }
-        if (coreInfo.flags & FLAG_AQPLUS) {
+        if (coreInfo->flags & FLAG_AQPLUS) {
             auto &item  = menu.items.emplace_back(MenuItemType::onOff, "Auto-bypass start screen");
             item.setter = [this](int newVal) {
                 bypassStartScreen = (newVal != 0);
@@ -1116,7 +1074,7 @@ public:
             item.getter = [this]() { return bypassStartScreen ? 1 : 0; };
         }
 #ifdef CONFIG_MACHINE_TYPE_AQPLUS
-        if (coreInfo.flags & FLAG_HAS_Z80) {
+        if (coreInfo->flags & FLAG_HAS_Z80) {
             auto &item  = menu.items.emplace_back(MenuItemType::onOff, "Use external Z80");
             item.setter = [this, &menu](int newVal) {
                 bool newUseT80 = (newVal == 0);
@@ -1137,7 +1095,7 @@ public:
             };
             item.getter = [this]() { return useT80 ? 0 : 1; };
         }
-        if (coreInfo.flags & FLAG_VIDEO_TIMING) {
+        if (coreInfo->flags & FLAG_VIDEO_TIMING) {
             auto &item   = menu.items.emplace_back(MenuItemType::subMenu, videoTimingMode ? "Video timing: 640x480" : "Video timing: 704x480");
             item.onEnter = [this, &menu]() {
                 videoTimingMode = (videoTimingMode == 0) ? 1 : 0;
@@ -1155,10 +1113,6 @@ public:
             };
         }
 #endif
-    }
-
-    void getCoreInfo(CoreInfo *_coreInfo) override {
-        *_coreInfo = coreInfo;
     }
 };
 

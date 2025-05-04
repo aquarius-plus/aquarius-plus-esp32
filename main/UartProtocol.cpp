@@ -287,6 +287,10 @@ public:
         switch (rxBuf[0]) {
             case ESPCMD_RESET: {
                 cmdReset();
+                auto core = FpgaCore::get();
+                if (core)
+                    core->uartCommand(rxBuf[0], rxBuf + 1, 1);
+
                 rxBufIdx = 0;
                 break;
             }
@@ -299,14 +303,6 @@ public:
                 if (rxBufIdx == 2) {
                     uint8_t type = rxBuf[1];
                     cmdGetDateTime(type);
-                    rxBufIdx = 0;
-                }
-                break;
-            }
-            case ESPCMD_KEYMODE: {
-                if (rxBufIdx == 2) {
-                    uint8_t keyMode = rxBuf[1];
-                    cmdKeyMode(keyMode);
                     rxBufIdx = 0;
                 }
                 break;
@@ -509,7 +505,7 @@ public:
             default: {
                 int result = -1;
 
-                auto core = getFpgaCore();
+                auto core = FpgaCore::get();
                 if (core) {
                     result = core->uartCommand(rxBuf[0], rxBuf + 1, rxBufIdx - 1);
                 }
@@ -530,7 +526,6 @@ public:
         DBGF("RESET()");
         closeAllDescriptors();
         currentPath.clear();
-        Keyboard::instance()->setKeyMode(3);
     }
     void cmdVersion() {
         DBGF("VERSION()");
@@ -564,16 +559,12 @@ public:
         txWrite(0);
         txWrite(strftime_buf, strlen(strftime_buf) + 1);
     }
-    void cmdKeyMode(uint8_t mode) {
-        DBGF("KEYMODE(mode=0x%02X)", mode);
-        Keyboard::instance()->setKeyMode(mode);
-        txStart();
-        txWrite(0);
-    }
     void cmdGetGameCtrl(uint8_t idx) {
         DBGF("GETGAMECTRL(idx=%u)", idx);
         GamePadData data;
-        if (!getFpgaCore()->getGamePadData(idx, data)) {
+
+        auto core = FpgaCore::get();
+        if (!core || !core->getGamePadData(idx, data)) {
             txStart();
             txWrite(ERR_NOT_FOUND);
         } else {
@@ -1065,15 +1056,15 @@ public:
             printf("Loading bitstream: %s (%u bytes)\n", pathArg, (unsigned)st.st_size);
 
 #ifdef EMULATOR
-            auto newCore = loadFpgaCore(FpgaCoreType::AquariusPlus, path.c_str(), st.st_size);
+            auto newCore = FpgaCore::load(path.c_str(), st.st_size);
 #else
-            auto newCore = loadFpgaCore(FpgaCoreType::AquariusPlus, buf, st.st_size);
+            auto newCore = FpgaCore::load(buf, st.st_size);
 #endif
             if (!newCore) {
                 printf("Failed! Loading default bitstream\n");
 
                 // Restore Aq+ firmware
-                loadFpgaCore(FpgaCoreType::AquariusPlus);
+                FpgaCore::loadAqPlus();
             }
             cmdCloseAll();
         }
