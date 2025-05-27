@@ -19,7 +19,7 @@ public:
 #endif
     virtual void handleScancode(unsigned scanCode, bool keyDown) = 0;
 
-    virtual void reset(bool enableCtrlMapping = true) = 0;
+    virtual void reset(bool enableAqPlusMappings = true) = 0;
     virtual int  getKey(TickType_t ticksToWait)       = 0;
     virtual int  waitScanCode()                       = 0;
 

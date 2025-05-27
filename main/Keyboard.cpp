@@ -215,10 +215,10 @@ public:
     uint8_t           repeat       = 0;
     unsigned          pressCounter = 0;
     SemaphoreHandle_t mutex;
-    KeyLayout         curLayout         = KeyLayout::US;
-    uint8_t           leds              = 0;
-    uint8_t           composeFirst      = 0;
-    bool              enableCtrlMapping = true;
+    KeyLayout         curLayout            = KeyLayout::US;
+    uint8_t           leds                 = 0;
+    uint8_t           composeFirst         = 0;
+    bool              enableAqPlusMappings = true;
 
     KeyboardInt() {
         mutex         = xSemaphoreCreateRecursiveMutex();
@@ -331,13 +331,13 @@ public:
     }
 #endif
 
-    void reset(bool _enableCtrlMapping) override {
+    void reset(bool _enableAqPlusMappings) override {
         RecursiveMutexLock lock(mutex);
-        modifiers         = 0;
-        repeat            = 0;
-        pressCounter      = 0;
-        composeFirst      = 0;
-        enableCtrlMapping = _enableCtrlMapping;
+        modifiers            = 0;
+        repeat               = 0;
+        pressCounter         = 0;
+        composeFirst         = 0;
+        enableAqPlusMappings = _enableAqPlusMappings;
     }
 
     void handleScancode(unsigned scanCode, bool keyDown) override {
@@ -391,7 +391,7 @@ public:
         uint8_t ch = 0;
         if (scanCode >= SCANCODE_A && scanCode <= SCANCODE_SLASH) {
             static const uint8_t lut1[] = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\r', 3, '\b', '\t', ' ', '-', '=', '[', ']', '\\', '\\', ';', '\'', '`', ',', '.', '/'};
-            static const uint8_t lut2[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '\r', 3, '\b', 0x8C, ' ', '_', '+', '{', '}', '|', '|', ':', '"', '~', '<', '>', '?'};
+            static const uint8_t lut2[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '\r', 3, '\b', '\t', ' ', '_', '+', '{', '}', '|', '|', ':', '"', '~', '<', '>', '?'};
 
             ch = (modifiers & (ModLShift | ModRShift)) != 0 ? lut2[scanCode - SCANCODE_A] : lut1[scanCode - SCANCODE_A];
 
@@ -405,7 +405,7 @@ public:
         uint8_t ch = 0;
         if (scanCode >= SCANCODE_A && scanCode <= SCANCODE_SLASH) {
             // clang-format off
-            static const uint8_t lut2[] = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '!', '"',0xA3, '$', '%', '^', '&', '*', '(', ')', '\r',0x03,'\b',0x8C, ' ', '_', '+', '{', '}', '~', '~', ':', '@',0xAC, '<', '>', '?'};
+            static const uint8_t lut2[] = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '!', '"',0xA3, '$', '%', '^', '&', '*', '(', ')', '\r',0x03,'\b','\t', ' ', '_', '+', '{', '}', '~', '~', ':', '@',0xAC, '<', '>', '?'};
             static const uint8_t lut1[] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\r',0x03,'\b','\t', ' ', '-', '=', '[', ']', '#', '#', ';','\'', '`', ',', '.', '/'};
             static const uint8_t lut3[] = {0xE1,   0,   0,   0,0xE9,   0,   0,   0,0xED,   0,   0,   0,   0,   0,0xF3,   0,   0,   0,   0,   0,0xFA,   0,   0,   0,   0,   0,   0,   0,   0,0x80,   0,   0,   0,   0,   0,   0,    0,   0,   0,   0,   0,   0,   0,   0,   0,'\\','\\',   0,   0,0xA6,   0,   0,   0};
             static const uint8_t lut4[] = {0xC1,   0,   0,   0,0xC9,   0,   0,   0,0xCD,   0,   0,   0,   0,   0,0xD3,   0,   0,   0,   0,   0,0xDA,   0,   0,   0,   0,   0,   0,   0,   0,0x80,   0,   0,   0,   0,   0,   0,    0,   0,   0,   0,   0,   0,   0,   0,   0, '|', '|',   0,   0,0xA6,   0,   0,   0};
@@ -427,7 +427,7 @@ public:
         uint8_t ch = 0;
         if (scanCode >= SCANCODE_A && scanCode <= SCANCODE_SLASH) {
             // clang-format off
-            static const uint8_t lut2[] = { 'Q', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', '?', 'N', 'O', 'P', 'A', 'R', 'S', 'T', 'U', 'V', 'Z', 'X', 'Y', 'W', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\r',0x03,'\b',0x8C, ' ',0xB0, '+',0xA8,0xA3,0xB5,0xB5, 'M', '%',0xB3, '.', '/',0xA7};
+            static const uint8_t lut2[] = { 'Q', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', '?', 'N', 'O', 'P', 'A', 'R', 'S', 'T', 'U', 'V', 'Z', 'X', 'Y', 'W', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\r',0x03,'\b','\t', ' ',0xB0, '+',0xA8,0xA3,0xB5,0xB5, 'M', '%',0xB3, '.', '/',0xA7};
             static const uint8_t lut1[] = { 'q', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', ',', 'n', 'o', 'p', 'a', 'r', 's', 't', 'u', 'v', 'z', 'x', 'y', 'w', '&',0xE9, '"','\'', '(', '-',0xE8, '_',0xE7,0xE0, '\r',0x03,'\b','\t', ' ', ')', '=', '^', '$', '*', '*', 'm',0xF9,0xB2, ';', ':', '!'};
             static const uint8_t lut3[] = {   0,   0,   0,   0,0x80,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, '~', '#', '{', '[', '|', '`','\\', '^', '@',    0,   0,   0,   0,   0, ']', '}',   0,0xA4,   0,   0,   0,   0,   0,   0,   0,   0};
             static const uint8_t lut4[] = {   0,   0,   0,   0,0x80,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0, '~', '#', '{', '[', '|', '`','\\', '^', '@',    0,   0,   0,   0,   0, ']', '}',   0,0xA4,   0,   0,   0,   0,   0,   0,   0,   0};
@@ -458,7 +458,7 @@ public:
         uint8_t ch = 0;
         if (scanCode >= SCANCODE_A && scanCode <= SCANCODE_SLASH) {
             // clang-format off
-            static const uint8_t lut2[] = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Z', 'Y', '!', '"',0xA7, '$', '%', '&', '/', '(', ')', '=', '\r',0x03,'\b',0x8C, ' ', '?', '`',0xDC, '*','\'','\'',0xD6,0xC4,0xB0, ';', ':', '_'};
+            static const uint8_t lut2[] = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Z', 'Y', '!', '"',0xA7, '$', '%', '&', '/', '(', ')', '=', '\r',0x03,'\b','\t', ' ', '?', '`',0xDC, '*','\'','\'',0xD6,0xC4,0xB0, ';', ':', '_'};
             static const uint8_t lut1[] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'z', 'y', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\r',0x03,'\b','\t', ' ',0xDF,0xB4,0xFC, '+', '#', '#',0xF6,0xE4, '^', ',', '.', '-'};
             static const uint8_t lut3[] = {   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,0xB5,   0,   0,   0, '@',   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,0xB2,0xB3,   0,   0,   0, '{', '[', ']', '}',    0,   0,   0,   0,   0,'\\',   0,   0, '~',   0,   0,   0,   0,   0,   0,   0,   0};
             static const uint8_t lut4[] = {   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,0xB5,   0,   0,   0, '@',   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,0xB2,0xB3,   0,   0,   0, '{', '[', ']', '}',    0,   0,   0,   0,   0,'\\',   0,   0, '~',   0,   0,   0,   0,   0,   0,   0,   0};
@@ -578,13 +578,22 @@ public:
                 ch = lut[scanCode - SCANCODE_F1];
             }
 
-            if (enableCtrlMapping && (modifiers & (ModLCtrl | ModRCtrl)) != 0) {
-                if (ch == '@') {
-                    ch = 0x80;
-                } else if (ch >= 'a' && ch <= 'z') {
-                    ch = ch - 'a' + 1;
-                } else if (ch >= 'A' && ch <= '_') {
-                    ch = ch - 'A' + 1;
+            if (enableAqPlusMappings) {
+                // Remap CTRL-keys to 1-31 and 128
+                if ((modifiers & (ModLCtrl | ModRCtrl)) != 0) {
+                    if (ch == '@') {
+                        ch = 0x80;
+                    } else if (ch >= 'a' && ch <= 'z') {
+                        ch = ch - 'a' + 1;
+                    } else if (ch >= 'A' && ch <= '_') {
+                        ch = ch - 'A' + 1;
+                    }
+                }
+
+                // Shift-Tab remapping
+                else if ((modifiers & (ModLShift | ModRShift)) != 0) {
+                    if (ch == '\t')
+                        ch = 0x8C;
                 }
             }
 

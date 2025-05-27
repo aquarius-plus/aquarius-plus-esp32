@@ -250,6 +250,8 @@ public:
         auto emuState = EmuState::get();
         if (emuState) {
             emuState->spiRx(buf, length);
+        } else {
+            memset(buf, 0, length);
         }
 #endif
     }

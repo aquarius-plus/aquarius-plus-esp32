@@ -30,7 +30,7 @@ public:
         }
     }
 
-    void drawBorder(int x, int y, int w, int h, unsigned colBorder, unsigned colFill, int selectedRow, unsigned colFillSel) {
+    void drawBorder(int x, int y, int w, int h, unsigned colBorder, unsigned colFill, int selectedRow, unsigned colFillSel) override {
         uint16_t col         = makeAttr(colBorder, colFill) << 8;
         uint16_t colSelected = makeAttr(colBorder, colFillSel) << 8;
 

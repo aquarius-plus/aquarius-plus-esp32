@@ -204,7 +204,7 @@ public:
         gamePads[idx] = data;
     }
 
-    bool getGamePadData(unsigned idx, GamePadData &data) {
+    bool getGamePadData(unsigned idx, GamePadData &data) override {
         if (idx > 1)
             return false;
 
