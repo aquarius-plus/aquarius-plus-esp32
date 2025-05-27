@@ -99,7 +99,9 @@ public:
         mutex            = xSemaphoreCreateRecursiveMutex();
         bypassStartTimer = xTimerCreate("", pdMS_TO_TICKS(CONFIG_BYPASS_START_TIME_MS), pdFALSE, this, _onBypassStartTimer);
 
+        UartProtocol::instance()->setBaudrate(3579545);
         applySettings();
+        Keyboard::instance()->reset(true);
     }
 
     virtual ~CoreAquariusPlus() {

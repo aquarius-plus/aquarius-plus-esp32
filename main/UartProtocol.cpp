@@ -119,6 +119,13 @@ public:
 #endif
     }
 
+    void setBaudrate(unsigned baudrate) override {
+#ifndef EMULATOR
+        ESP_LOGI(TAG, "Setting baudrate to %u bps\n", baudrate);
+        uart_set_baudrate(UART_NUM, baudrate);
+#endif
+    }
+
 #ifdef EMULATOR
     std::string getCurrentPath() override {
         return currentPath;

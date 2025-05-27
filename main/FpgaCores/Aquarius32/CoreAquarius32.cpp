@@ -47,8 +47,9 @@ public:
     CoreAquarius32() {
         memset(gamePads, 0, sizeof(gamePads));
         mutex = xSemaphoreCreateRecursiveMutex();
-        applySettings();
 
+        UartProtocol::instance()->setBaudrate(25175000 / 6);
+        applySettings();
         Keyboard::instance()->reset(false);
     }
 

@@ -37,6 +37,7 @@ public:
     static UartProtocol *instance();
 
     virtual void init() = 0;
+    virtual void setBaudrate(unsigned baudrate) = 0;
 
     // Only to be called from command handler
     virtual void txStart()                               = 0;
