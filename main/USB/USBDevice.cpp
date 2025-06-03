@@ -1,6 +1,7 @@
 #include "USBDevice.h"
 #include "USBInterfaceHID.h"
 #include "HIDReportHandlerKeyboard.h"
+#include "USBInterfaceMIDI.h"
 
 static const char *TAG = "USBDevice";
 
@@ -81,7 +82,8 @@ bool USBDevice::parseDescriptors(const void *buf, size_t length) {
             return false;
         }
 
-        uint8_t ifClass = p[5];
+        uint8_t ifClass    = p[5];
+        uint8_t ifSubClass = p[6];
 
         while (len > 0) {
             if (len < p[0]) {
@@ -104,8 +106,22 @@ bool USBDevice::parseDescriptors(const void *buf, size_t length) {
         ESP_LOGI(TAG, "Interface found - class %02X: %u %u", ifClass, ifBuf - static_cast<const uint8_t *>(buf), ifLen);
 
         switch (ifClass) {
+            case 0x01: {
+                ESP_LOGI(TAG, "Class: Audio - subclass: %02x", ifSubClass);
+                if (ifSubClass == 0x03) {
+                    USBInterfaceMIDI *midiInterface = new USBInterfaceMIDI(this);
+                    if (midiInterface->init(ifBuf, ifLen)) {
+                        midiInterface->nextInterface = interfaces;
+                        interfaces                   = midiInterface;
+                    } else {
+                        delete midiInterface;
+                    }
+                }
+                break;
+            }
+
             case 0x03: {
-                ESP_LOGI(TAG, "HID interface!");
+                ESP_LOGI(TAG, "Class: HID");
 
                 USBInterfaceHID *hidInterface = new USBInterfaceHID(this);
                 if (hidInterface->init(ifBuf, ifLen)) {
@@ -118,7 +134,7 @@ bool USBDevice::parseDescriptors(const void *buf, size_t length) {
             }
 
             default: {
-                ESP_LOGW(TAG, "Unsupported interface class type!");
+                ESP_LOGW(TAG, "Unsupported interface class %02x:%02x", ifClass, ifSubClass);
                 break;
             }
         }

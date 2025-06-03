@@ -34,5 +34,5 @@ protected:
     bool              _isKeyboard    = false;
     HIDReportHandler *reportHandlers = nullptr;
 
-    void processInterruptData(const uint8_t *buf, size_t length) override;
+    void processInData(const uint8_t *buf, size_t length) override;
 };

@@ -9,6 +9,7 @@ idf_component_register(
         "FileServer.cpp"
         "XzDecompress.cpp"
         "PowerLED.cpp"
+        "MidiData.cpp"
 
         "DisplayOverlay/DisplayOverlay.cpp"
         "DisplayOverlay/Menu.cpp"
@@ -26,6 +27,7 @@ idf_component_register(
         "USB/USBDevice.cpp"
         "USB/USBInterface.cpp"
         "USB/USBInterfaceHID.cpp"
+        "USB/USBInterfaceMIDI.cpp"
 
         "fatfs/ff.c"
         "fatfs/ffsystem.c"

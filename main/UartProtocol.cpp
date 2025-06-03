@@ -9,8 +9,8 @@
 #endif
 
 #include "VFS.h"
-#include "Keyboard.h"
 #include "FpgaCore.h"
+#include "MidiData.h"
 
 #ifndef EMULATOR
 static const char *TAG = "UartProtocol";
@@ -322,6 +322,14 @@ public:
                 }
                 break;
             }
+            case ESPCMD_GETMIDIDATA: {
+                if (rxBufIdx == 3) {
+                    uint16_t size = rxBuf[1] | (rxBuf[2] << 8);
+                    cmdGetMidiData(size);
+                    rxBufIdx = 0;
+                }
+                break;
+            }
             case ESPCMD_OPEN: {
                 if (data == 0 && rxBufIdx >= 3) {
                     uint8_t     flags   = rxBuf[1];
@@ -585,6 +593,27 @@ public:
             txWrite(data.rt);
             txWrite(data.buttons & 0xFF);
             txWrite(data.buttons >> 8);
+        }
+    }
+    void cmdGetMidiData(uint16_t size) {
+        DBGF("GETMIDIDATA(size=%u)", size);
+        txStart();
+        auto midiData = MidiData::instance();
+        auto count    = midiData->getDataCount();
+        if (count * 4 > size) {
+            count = size / 4;
+        }
+        size = count * 4;
+        txWrite((size >> 0) & 0xFF);
+        txWrite((size >> 8) & 0xFF);
+
+        while (count--) {
+            uint8_t buf[4];
+            midiData->getData(buf);
+            txWrite(buf[0]);
+            txWrite(buf[1]);
+            txWrite(buf[2]);
+            txWrite(buf[3]);
         }
     }
     void cmdOpen(uint8_t flags, const char *pathArg) {

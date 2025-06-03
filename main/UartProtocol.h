@@ -9,6 +9,7 @@ enum {
     ESPCMD_KEYMODE     = 0x08, // Set keyboard mode
     ESPCMD_GETMOUSE    = 0x0C, // Get mouse state
     ESPCMD_GETGAMECTRL = 0x0E, // Get game controller state
+    ESPCMD_GETMIDIDATA = 0x0F, // Get MIDI input data
     ESPCMD_OPEN        = 0x10, // Open / create file
     ESPCMD_CLOSE       = 0x11, // Close open file
     ESPCMD_READ        = 0x12, // Read from file
@@ -36,7 +37,7 @@ class UartProtocol {
 public:
     static UartProtocol *instance();
 
-    virtual void init() = 0;
+    virtual void init()                         = 0;
     virtual void setBaudrate(unsigned baudrate) = 0;
 
     // Only to be called from command handler

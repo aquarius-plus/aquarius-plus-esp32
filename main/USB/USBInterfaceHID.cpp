@@ -87,7 +87,7 @@ bool USBInterfaceHID::init(const void *ifDesc, size_t ifDescLen) {
         size_t transferSize = (maxPacketSize + 3) & ~3;
 
         ESP_LOGI(TAG, "Starting transfer on EP 0x%02X size: %u", endpointAddr, transferSize);
-        device->transferIn(endpointAddr, transferSize, _interruptInTransferCb, this);
+        device->transferIn(endpointAddr, transferSize, _inTransferCb, this);
 
         // if (_isKeyboard) {
         //     device->setLeds(0);
@@ -97,7 +97,7 @@ bool USBInterfaceHID::init(const void *ifDesc, size_t ifDescLen) {
     return true;
 }
 
-void USBInterfaceHID::processInterruptData(const uint8_t *buf, size_t length) {
+void USBInterfaceHID::processInData(const uint8_t *buf, size_t length) {
     RecursiveMutexLock lock(mutex);
 
     // ESP_LOG_BUFFER_HEXDUMP(TAG, transfer->data_buffer, transfer->actual_num_bytes, ESP_LOG_INFO);

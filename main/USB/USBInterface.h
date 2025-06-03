@@ -13,8 +13,8 @@ public:
     USBInterface *nextInterface = nullptr;
 
 protected:
-    static void  _interruptInTransferCb(usb_transfer_t *transfer);
-    virtual void processInterruptData(const uint8_t *buf, size_t length) = 0;
+    static void  _inTransferCb(usb_transfer_t *transfer);
+    virtual void processInData(const uint8_t *buf, size_t length) = 0;
 
     USBDevice *device            = nullptr;
     uint8_t    bInterfaceNumber  = 0;
