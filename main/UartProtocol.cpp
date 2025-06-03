@@ -598,6 +598,7 @@ public:
     void cmdGetMidiData(uint16_t size) {
         DBGF("GETMIDIDATA(size=%u)", size);
         txStart();
+        txWrite(0);
         auto midiData = MidiData::instance();
         auto count    = midiData->getDataCount();
         if (count * 4 > size) {
