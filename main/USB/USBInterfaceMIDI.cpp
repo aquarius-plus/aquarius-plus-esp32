@@ -78,7 +78,7 @@ void USBInterfaceMIDI::processInData(const uint8_t *buf, size_t length) {
         uint8_t cin = (p[0] & 0xF);
 
         // Filter out uninteresting messages
-        if (cin < 7)
+        if (cin < 8)
             continue;
         // Filter out MIDI clock and Active sense
         if (p[1] == 0xF8 || p[1] == 0xFE)
