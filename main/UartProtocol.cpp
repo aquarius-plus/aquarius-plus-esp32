@@ -1,6 +1,5 @@
 #include "UartProtocol.h"
 
-#include <algorithm>
 #include <esp_ota_ops.h>
 #ifndef EMULATOR
 #include <driver/uart.h>
@@ -35,16 +34,6 @@ static void dprintf(const char *fmt, ...) {
 #endif
 #else
 #define DBGF(...)
-#endif
-
-#ifdef EMULATOR
-#ifndef _WIN32
-static inline std::string toUpper(std::string s) {
-    for (auto &ch : s)
-        ch = toupper(ch);
-    return s;
-}
-#endif
 #endif
 
 class UartProtocolInt : public UartProtocol {
@@ -109,10 +98,6 @@ public:
     }
 
 #ifdef EMULATOR
-    std::string getCurrentPath() override {
-        return currentPath;
-    }
-
     void writeData(uint8_t data) override {
         receivedByte(data);
     }
@@ -828,7 +813,7 @@ public:
             printf("Loading bitstream: %s (%u bytes)\n", pathArg, (unsigned)st.st_size);
 
 #ifdef EMULATOR
-            auto newCore = FpgaCore::load(path.c_str(), st.st_size);
+            auto newCore = FpgaCore::load(pathArg, st.st_size);
 #else
             auto newCore = FpgaCore::load(buf, st.st_size);
 #endif

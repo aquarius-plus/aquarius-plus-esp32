@@ -1,5 +1,5 @@
 #include "VFS.h"
-#include "xz_decompress.h"
+#include "xz.h"
 
 #ifndef EMULATOR
 extern const uint8_t romfs_start[] asm("_binary_romfs_bin_start");
@@ -49,10 +49,6 @@ static const FileEntry *findFile(const std::string &_path) {
     return nullptr;
 }
 
-static void xzError(char *x) {
-    ESP_LOGE("romfs", "XZ decompression error: %s", x);
-}
-
 class EspVFS : public VFS {
 public:
     OpenFile openFile;
@@ -86,12 +82,7 @@ public:
 
         ESP_LOGW("espvfs", "Decompressing '%s' %u -> %u", openFile.fe->filename, (unsigned)openFile.fe->compressedSize, (unsigned)openFile.fe->fsize);
 
-        int inUsed;
-        if (xz_decompress(
-                (uint8_t *)romfs_start + openFile.fe->offset, openFile.fe->compressedSize,
-                nullptr, nullptr,
-                (uint8_t *)openFile.data.data(), &inUsed, xzError) != 0) {
-
+        if (xz_decompress((uint8_t *)romfs_start + openFile.fe->offset, openFile.fe->compressedSize, (uint8_t *)openFile.data.data()) != XZ_SUCCESS) {
             openFile.fe = NULL;
             openFile.data.clear();
             return ERR_OTHER;
@@ -175,7 +166,6 @@ public:
             return 0;
 
         } else {
-
             auto fe = findFile(_path);
             if (!fe) {
                 return ERR_NOT_FOUND;

@@ -1,4 +1,15 @@
 #include "VFS.h"
+#include <algorithm>
+
+#ifdef EMULATOR
+#ifndef _WIN32
+static inline std::string toUpper(std::string s) {
+    for (auto &ch : s)
+        ch = toupper(ch);
+    return s;
+}
+#endif
+#endif
 
 VFSContext::VFSContext() {
     for (int i = 0; i < MAX_FDS; i++) {

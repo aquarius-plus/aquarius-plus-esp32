@@ -7,7 +7,7 @@
 #include <esp_tls.h>
 #include <mdns.h>
 
-#include "XzDecompress.h"
+#include "xz.h"
 
 static const char *TAG = "WiFi";
 
@@ -43,9 +43,21 @@ public:
         RecursiveMutexLock lock(mutex);
 
         // Initialize CA store
-        extern const uint8_t certificatesXzhStart[] asm("_binary_root_certificates_xzh_start");
-        extern const uint8_t certificatesXzhEnd[] asm("_binary_root_certificates_xzh_end");
-        auto                 certificates = xzhDecompressToString(certificatesXzhStart, certificatesXzhEnd - certificatesXzhStart);
+        std::string certificates;
+        {
+            extern const uint8_t certificatesXzhStart[] asm("_binary_root_certificates_xzh_start");
+            extern const uint8_t certificatesXzhEnd[] asm("_binary_root_certificates_xzh_end");
+
+            auto outSize = *(uint32_t *)certificatesXzhStart;
+            certificates.resize(outSize);
+
+            if (xz_decompress(
+                    certificatesXzhStart + 4,
+                    (certificatesXzhEnd - certificatesXzhStart) - 4,
+                    (uint8_t *)certificates.data()) != XZ_SUCCESS) {
+                certificates.clear();
+            }
+        }
 
         ESP_ERROR_CHECK(esp_tls_init_global_ca_store());
 

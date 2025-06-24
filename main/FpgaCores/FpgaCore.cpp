@@ -1,6 +1,6 @@
 #include "FpgaCore.h"
 #include "FPGA.h"
-#include "XzDecompress.h"
+#include "xz.h"
 #include "DisplayOverlay/DisplayOverlay.h"
 #include "Keyboard.h"
 
@@ -52,11 +52,25 @@ std::shared_ptr<FpgaCore> FpgaCore::loadAqPlus() {
 
 #ifndef EMULATOR
 #ifdef CONFIG_MACHINE_TYPE_AQPLUS
-    extern const uint8_t fpgaImageXzhStart[] asm("_binary_aqp_top_bit_xzh_start");
-    extern const uint8_t fpgaImageXzhEnd[] asm("_binary_aqp_top_bit_xzh_end");
-    auto                 fpgaImage = xzhDecompress(fpgaImageXzhStart, fpgaImageXzhEnd - fpgaImageXzhStart);
-    data                           = fpgaImage.data();
-    length                         = fpgaImage.size();
+    std::vector<uint8_t> fpgaImage;
+    {
+        extern const uint8_t fpgaImageXzhStart[] asm("_binary_aqp_top_bit_xzh_start");
+        extern const uint8_t fpgaImageXzhEnd[] asm("_binary_aqp_top_bit_xzh_end");
+
+        length = *(uint32_t *)fpgaImageXzhStart;
+        fpgaImage.resize(length);
+
+        if (xz_decompress(
+                fpgaImageXzhStart + 4,
+                (fpgaImageXzhEnd - fpgaImageXzhStart) - 4,
+                fpgaImage.data()) == XZ_SUCCESS) {
+
+            data = fpgaImage.data();
+        } else {
+            fpgaImage.clear();
+            length = 0;
+        }
+    }
 #else
     extern const uint8_t fpgaImageStart[] asm("_binary_morphbook_aqplus_impl1_bit_start");
     extern const uint8_t fpgaImageEnd[] asm("_binary_morphbook_aqplus_impl1_bit_end");

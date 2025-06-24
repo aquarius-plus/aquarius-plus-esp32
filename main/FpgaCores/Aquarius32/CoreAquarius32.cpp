@@ -7,7 +7,6 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <nvs_flash.h>
-#include "XzDecompress.h"
 #include "DisplayOverlay/DisplayOverlay.h"
 #include "DisplayOverlay/FileListMenu.h"
 
