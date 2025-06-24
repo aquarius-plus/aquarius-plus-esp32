@@ -88,6 +88,65 @@ VFS *getEspVFS();
 VFS *getHttpVFS();
 VFS *getTcpVFS();
 
+#define ESP_PREFIX "esp:"
+#define MAX_FDS    (10)
+#define MAX_DDS    (10)
+
+class VFSContext {
+public:
+    VFSContext();
+
+    static VFSContext *getDefault();
+    std::string        getCurrentPath() { return currentPath; }
+
+#ifdef EMULATOR
+    struct FileInfo {
+        uint8_t     flags;
+        std::string name;
+        unsigned    offset;
+    };
+    std::map<uint8_t, FileInfo> fi;
+
+    struct DirInfo {
+        std::string name;
+        unsigned    offset;
+    };
+    std::map<uint8_t, DirInfo> di;
+#endif
+
+    void reset();
+    void closeAll();
+
+    int open(uint8_t flags, const std::string &path);
+    int close(int fd);
+    int read(int fd, size_t size, void *buf);
+    int readline(int fd, size_t size, void *buf);
+    int write(int fd, size_t size, const void *buf);
+    int seek(int fd, size_t offset);
+    int lseek(int fd, int offset, int whence);
+    int tell(int fd);
+
+    int openDirExt(const char *path, uint8_t flags, uint16_t skipCount);
+    int closeDir(int dd);
+    int readDir(int dd, DirEnumEntry *de);
+
+    // Filesystem operations
+    int delete_(const std::string &path);
+    int rename(const std::string &pathOld, const std::string &pathNew);
+    int mkdir(const std::string &path);
+    int chdir(const std::string &path);
+    int stat(const std::string &path, struct stat *st);
+
+private:
+    std::string resolvePath(std::string path, VFS **vfs, std::string *wildCard = nullptr);
+
+    std::string currentPath;
+    VFS        *fdVfs[MAX_FDS];
+    uint8_t     fds[MAX_FDS];
+    DirEnumCtx  deCtxs[MAX_DDS];
+    int         deIdx[MAX_DDS];
+};
+
 #ifdef EMULATOR
 void setSDCardPath(const std::string &basePath);
 #endif

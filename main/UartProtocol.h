@@ -51,20 +51,5 @@ public:
     virtual void    writeData(uint8_t data) = 0;
     virtual uint8_t readCtrl()              = 0;
     virtual uint8_t readData()              = 0;
-
-    virtual std::string getCurrentPath() = 0;
-
-    struct FileInfo {
-        uint8_t     flags;
-        std::string name;
-        unsigned    offset;
-    };
-    std::map<uint8_t, FileInfo> fi;
-
-    struct DirInfo {
-        std::string name;
-        unsigned    offset;
-    };
-    std::map<uint8_t, DirInfo> di;
 #endif
 };

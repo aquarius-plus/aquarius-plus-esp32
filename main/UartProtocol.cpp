@@ -19,11 +19,6 @@ static const char *TAG = "UartProtocol";
 #define BUF_SIZE (1024)
 #endif
 
-#define MAX_FDS (10)
-#define MAX_DDS (10)
-
-#define ESP_PREFIX "esp:"
-
 #if 0
 #ifndef EMULATOR
 #define DBGF(...) ESP_LOGI(TAG, __VA_ARGS__)
@@ -65,24 +60,11 @@ public:
     unsigned txBufRdIdx = 0;
     unsigned txBufCnt   = 0;
 #endif
-    std::string currentPath;
     uint8_t     rxBuf[16 + 0x10000];
     int         rxBufIdx = -1;
-    VFS        *fdVfs[MAX_FDS];
-    uint8_t     fds[MAX_FDS];
-    DirEnumCtx  deCtxs[MAX_DDS];
-    int         deIdx[MAX_DDS];
-    const char *newPath = nullptr;
+    const char *newPath  = nullptr;
 
     UartProtocolInt() {
-        for (int i = 0; i < MAX_FDS; i++) {
-            fdVfs[i] = nullptr;
-            fds[i]   = 0;
-        }
-        for (int i = 0; i < MAX_DDS; i++) {
-            deCtxs[i] = nullptr;
-            deIdx[i]  = 0;
-        }
     }
 
     void init() override {
@@ -539,8 +521,7 @@ public:
 
     void cmdReset() {
         DBGF("RESET()");
-        closeAllDescriptors();
-        currentPath.clear();
+        VFSContext::getDefault()->reset();
     }
     void cmdVersion() {
         DBGF("VERSION()");
@@ -620,75 +601,19 @@ public:
     void cmdOpen(uint8_t flags, const char *pathArg) {
         DBGF("OPEN(flags=0x%02X, path='%s')", flags, pathArg);
         txStart();
-
-        // Find free file descriptor
-        int fd = -1;
-        for (int i = 0; i < MAX_FDS; i++) {
-            if (fdVfs[i] == nullptr) {
-                fd = i;
-                break;
-            }
-        }
-        if (fd == -1) {
-            // Error
-            txWrite(ERR_TOO_MANY_OPEN);
-            return;
-        }
-
-        // Compose full path
-        VFS *vfs  = nullptr;
-        auto path = resolvePath(pathArg, &vfs);
-        if (!vfs) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
-        int vfs_fd = vfs->open(flags, path);
-        if (vfs_fd < 0) {
-            txWrite(vfs_fd);
-        } else {
-            fdVfs[fd] = vfs;
-            fds[fd]   = vfs_fd;
-            txWrite(fd);
-
-#ifdef EMULATOR
-            FileInfo tmp;
-            tmp.flags  = flags;
-            tmp.name   = pathArg;
-            tmp.offset = 0;
-            fi.insert(std::make_pair(fd, tmp));
-#endif
-        }
+        int result = VFSContext::getDefault()->open(flags, pathArg);
+        txWrite(result);
     }
     void cmdClose(uint8_t fd) {
         DBGF("CLOSE(fd=%u)", fd);
         txStart();
-
-        if (fd >= MAX_FDS || fdVfs[fd] == nullptr) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
-        txWrite(fdVfs[fd]->close(fds[fd]));
-        fdVfs[fd] = nullptr;
-
-#ifdef EMULATOR
-        auto it = fi.find(fd);
-        if (it != fi.end()) {
-            fi.erase(it);
-        }
-#endif
+        int result = VFSContext::getDefault()->close(fd);
+        txWrite(result);
     }
     void cmdRead(uint8_t fd, uint16_t size) {
         DBGF("READ(fd=%u, size=%u)", fd, size);
         txStart();
-
-        if (fd >= MAX_FDS || fdVfs[fd] == nullptr) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
-        int result = fdVfs[fd]->read(fds[fd], size, rxBuf);
+        int result = VFSContext::getDefault()->read(fd, size, rxBuf);
         if (result < 0) {
             txWrite(result);
         } else {
@@ -696,22 +621,12 @@ public:
             txWrite((result >> 0) & 0xFF);
             txWrite((result >> 8) & 0xFF);
             txWrite(rxBuf, result);
-
-#ifdef EMULATOR
-            fi[fd].offset += result;
-#endif
         }
     }
     void cmdReadLine(uint8_t fd, uint16_t size) {
         DBGF("READLINE(fd=%u, size=%u)", fd, size);
         txStart();
-
-        if (fd >= MAX_FDS || fdVfs[fd] == nullptr) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
-        int result = fdVfs[fd]->readline(fds[fd], size, rxBuf);
+        int result = VFSContext::getDefault()->readline(fd, size, rxBuf);
         if (result < 0) {
             txWrite(result);
         } else {
@@ -724,59 +639,30 @@ public:
                 txWrite(*(p++));
             }
             txWrite(0);
-
-#ifdef EMULATOR
-            fi[fd].offset = fdVfs[fd]->tell(fds[fd]);
-#endif
         }
     }
     void cmdWrite(uint8_t fd, uint16_t size, const void *data) {
         DBGF("WRITE(fd=%u, size=%u, data=...)", fd, size);
         txStart();
-
-        if (fd >= MAX_FDS || fdVfs[fd] == nullptr) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
-        int result = fdVfs[fd]->write(fds[fd], size, data);
+        int result = VFSContext::getDefault()->write(fd, size, data);
         if (result < 0) {
             txWrite(result);
         } else {
             txWrite(0);
             txWrite((result >> 0) & 0xFF);
             txWrite((result >> 8) & 0xFF);
-
-#ifdef EMULATOR
-            fi[fd].offset += result;
-#endif
         }
     }
     void cmdSeek(uint8_t fd, uint32_t offset) {
         DBGF("SEEK(fd=%u, offset=%u)", fd, (unsigned)offset);
         txStart();
-
-        if (fd >= MAX_FDS || fdVfs[fd] == nullptr) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
-        txWrite(fdVfs[fd]->seek(fds[fd], offset));
-
-#ifdef EMULATOR
-        fi[fd].offset = fdVfs[fd]->tell(fds[fd]);
-#endif
+        int result = VFSContext::getDefault()->seek(fd, offset);
+        txWrite(result);
     }
     void cmdLSeek(uint8_t fd, int offset, int whence) {
         DBGF("LSEEK(fd=%u, offset=%d, whence=%d)", fd, offset, whence);
         txStart();
-
-        if (fd >= MAX_FDS || fdVfs[fd] == nullptr) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
-        int result = fdVfs[fd]->lseek(fds[fd], offset, whence);
+        int result = VFSContext::getDefault()->lseek(fd, offset, whence);
         if (result < 0) {
             txWrite(result);
         } else {
@@ -786,21 +672,11 @@ public:
             txWrite((result >> 16) & 0xFF);
             txWrite((result >> 24) & 0xFF);
         }
-
-#ifdef EMULATOR
-        fi[fd].offset = fdVfs[fd]->tell(fds[fd]);
-#endif
     }
     void cmdTell(uint8_t fd) {
         DBGF("TELL(fd=%u)", fd);
         txStart();
-
-        if (fd >= MAX_FDS || fdVfs[fd] == nullptr) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
-        int result = fdVfs[fd]->tell(fds[fd]);
+        int result = VFSContext::getDefault()->tell(fd);
         if (result < 0) {
             txWrite(result);
         } else {
@@ -814,102 +690,25 @@ public:
     void cmdOpenDirExt(const char *pathArg, uint8_t flags, uint16_t skipCount) {
         DBGF("OPENDIREXT(path='%s', flags=0x%02X, skipCount=%u)", pathArg, flags, skipCount);
         txStart();
-
-        // Find free directory descriptor
-        int dd = -1;
-        for (int i = 0; i < MAX_DDS; i++) {
-            if (deCtxs[i] == nullptr) {
-                dd = i;
-                break;
-            }
-        }
-        if (dd == -1) {
-            // Error
-            txWrite(ERR_TOO_MANY_OPEN);
-            return;
-        }
-
-        // Compose full path
-        VFS        *vfs = nullptr;
-        std::string wildCard;
-        auto        path = resolvePath(pathArg, &vfs, &wildCard);
-        if (!vfs) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
-        auto [result, deCtx] = vfs->direnum(path, flags);
-        if (result < 0) {
-            txWrite(result);
-        } else {
-            if (!path.empty() && (flags & DE_FLAG_DOTDOT) != 0) {
-                deCtx->push_back(DirEnumEntry("..", 0, DE_ATTR_DIR, 0, 0));
-            }
-
-            if (!wildCard.empty()) {
-                deCtx->erase(
-                    std::remove_if(deCtx->begin(), deCtx->end(), [&](DirEnumEntry &de) {
-                        if ((de.attr & DE_ATTR_DIR) != 0 && (flags & DE_FLAG_ALWAYS_DIRS))
-                            return false;
-                        return !wildcardMatch(de.filename, wildCard);
-                    }),
-                    deCtx->end());
-            }
-
-            std::sort(deCtx->begin(), deCtx->end(), [](auto &a, auto &b) {
-                // Sort directories at the top
-                if ((a.attr & DE_ATTR_DIR) != (b.attr & DE_ATTR_DIR)) {
-                    return (a.attr & DE_ATTR_DIR) != 0;
-                }
-                return strcasecmp(a.filename.c_str(), b.filename.c_str()) < 0;
-            });
-
-            deCtxs[dd] = deCtx;
-            deIdx[dd]  = skipCount;
-            txWrite(dd);
-
-#ifdef EMULATOR
-            DirInfo tmp;
-            tmp.name   = pathArg;
-            tmp.offset = 0;
-            di.insert(std::make_pair(dd, tmp));
-#endif
-        }
+        int result = VFSContext::getDefault()->openDirExt(pathArg, flags, skipCount);
+        txWrite(result);
     }
     void cmdCloseDir(uint8_t dd) {
         DBGF("CLOSEDIR(dd=%u)", dd);
         txStart();
-
-        if (dd >= MAX_DDS || deCtxs[dd] == nullptr) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-        deCtxs[dd] = nullptr;
-        txWrite(0);
-
-#ifdef EMULATOR
-        auto it = di.find(dd);
-        if (it != di.end()) {
-            di.erase(it);
-        }
-#endif
+        int result = VFSContext::getDefault()->closeDir(dd);
+        txWrite(result);
     }
     void cmdReadDir(uint8_t dd) {
         DBGF("READDIR(dd=%u)", dd);
         txStart();
-
-        if (dd >= MAX_DDS || deCtxs[dd] == nullptr) {
-            txWrite(ERR_PARAM);
+        DirEnumEntry de;
+        int          result = VFSContext::getDefault()->readDir(dd, &de);
+        if (result < 0) {
+            txWrite(result);
             return;
         }
 
-        auto ctx = deCtxs[dd];
-        if (deIdx[dd] >= (int)((*ctx).size())) {
-            txWrite(ERR_EOF);
-            return;
-        }
-
-        auto &de = (*ctx)[deIdx[dd]++];
         txWrite(0);
         txWrite((de.fdate >> 0) & 0xFF);
         txWrite((de.fdate >> 8) & 0xFF);
@@ -922,90 +721,36 @@ public:
         txWrite((de.size >> 24) & 0xFF);
         txWrite(de.filename.c_str(), de.filename.size());
         txWrite(0);
-
-#ifdef EMULATOR
-        di[dd].offset++;
-#endif
     }
     void cmdDelete(const char *pathArg) {
         DBGF("DELETE(path='%s')", pathArg);
         txStart();
-
-        VFS *vfs  = nullptr;
-        auto path = resolvePath(pathArg, &vfs);
-        if (!vfs) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-        txWrite(vfs->delete_(path));
+        int result = VFSContext::getDefault()->delete_(pathArg);
+        txWrite(result);
     }
     void cmdRename(const char *oldArg, const char *newArg) {
         DBGF("RENAME(old='%s', new='%s')", oldArg, newArg);
         txStart();
-
-        VFS *vfs1     = nullptr;
-        VFS *vfs2     = nullptr;
-        auto _oldPath = resolvePath(oldArg, &vfs1);
-        auto _newPath = resolvePath(newArg, &vfs2);
-        if (!vfs1 || vfs1 != vfs2) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
-        txWrite(vfs1->rename(_oldPath, _newPath));
+        int result = VFSContext::getDefault()->rename(oldArg, newArg);
+        txWrite(result);
     }
     void cmdMkDir(const char *pathArg) {
         DBGF("MKDIR(path='%s)", pathArg);
         txStart();
-
-        VFS *vfs  = nullptr;
-        auto path = resolvePath(pathArg, &vfs);
-        if (!vfs) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-        txWrite(vfs->mkdir(path));
+        int result = VFSContext::getDefault()->mkdir(pathArg);
+        txWrite(result);
     }
     void cmdChDir(const char *pathArg) {
         DBGF("CHDIR(path='%s')", pathArg);
         txStart();
-
-        // Compose full path
-        VFS *vfs  = nullptr;
-        auto path = resolvePath(pathArg, &vfs);
-        if (!vfs) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
-        struct stat st;
-        int         result = vfs->stat(path, &st);
-        if (result == 0) {
-            if (st.st_mode & S_IFDIR) {
-                if (vfs == getEspVFS()) {
-                    currentPath = std::string(ESP_PREFIX) + path;
-                } else {
-                    currentPath = path;
-                }
-            } else {
-                result = ERR_PARAM;
-            }
-        }
+        int result = VFSContext::getDefault()->chdir(pathArg);
         txWrite(result);
     }
     void cmdStat(const char *pathArg) {
         DBGF("STAT(path='%s')", pathArg);
         txStart();
-
-        VFS *vfs  = nullptr;
-        auto path = resolvePath(pathArg, &vfs);
-        if (!vfs) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
         struct stat st;
-        int         result = vfs->stat(path, &st);
+        int         result = VFSContext::getDefault()->stat(pathArg, &st);
 
         txWrite(result);
         if (result < 0)
@@ -1037,6 +782,7 @@ public:
         DBGF("GETCWD()");
         txStart();
 
+        auto currentPath = VFSContext::getDefault()->getCurrentPath();
         txWrite(0);
         txWrite('/');
         txWrite(currentPath.c_str(), currentPath.size() + 1);
@@ -1045,27 +791,16 @@ public:
         DBGF("CLOSEALL()");
         txStart();
 
-        closeAllDescriptors();
+        VFSContext::getDefault()->closeAll();
         txWrite(0);
-
-#ifdef EMULATOR
-        fi.clear();
-        di.clear();
-#endif
     }
     void cmdLoadFpga(const char *pathArg) {
         DBGF("LOADFPGA(path='%s')", pathArg);
         txStart();
 
-        VFS *vfs  = nullptr;
-        auto path = resolvePath(pathArg, &vfs);
-        if (!vfs) {
-            txWrite(ERR_PARAM);
-            return;
-        }
-
+        auto        vc = VFSContext::getDefault();
         struct stat st;
-        int         result = vfs->stat(path, &st);
+        int         result = vc->stat(pathArg, &st);
         if (result < 0) {
             txWrite(result);
             return;
@@ -1082,12 +817,12 @@ public:
             return;
         }
 
-        int vfs_fd = vfs->open(FO_RDONLY, path);
-        if (vfs_fd < 0) {
-            txWrite(vfs_fd);
+        int fd = vc->open(FO_RDONLY, pathArg);
+        if (fd < 0) {
+            txWrite(fd);
         } else {
-            vfs->read(vfs_fd, st.st_size, buf);
-            vfs->close(vfs_fd);
+            vc->read(fd, st.st_size, buf);
+            vc->close(fd);
             txWrite(0);
 
             printf("Loading bitstream: %s (%u bytes)\n", pathArg, (unsigned)st.st_size);
@@ -1107,147 +842,6 @@ public:
         }
 
         free(buf);
-    }
-
-    std::string resolvePath(std::string path, VFS **vfs, std::string *wildCard = nullptr) {
-        *vfs = getSDCardVFS();
-
-        if (startsWith(path, "http://") || startsWith(path, "https://")) {
-            *vfs = getHttpVFS();
-            return path;
-        }
-        if (startsWith(path, "tcp://")) {
-            *vfs = getTcpVFS();
-            return path;
-        }
-
-        bool useCwd = true;
-        if (!path.empty() && (path[0] == '/' || path[0] == '\\')) {
-            useCwd = false;
-        } else if (startsWith(path, ESP_PREFIX)) {
-            useCwd = false;
-            *vfs   = getEspVFS();
-            path   = path.substr(strlen(ESP_PREFIX));
-        }
-
-        // Split the path into parts
-        std::vector<std::string> parts;
-        if (useCwd) {
-            if (startsWith(currentPath, ESP_PREFIX)) {
-                splitPath(currentPath.substr(strlen(ESP_PREFIX)), parts);
-                *vfs = getEspVFS();
-            } else {
-                splitPath(currentPath, parts);
-            }
-        }
-        splitPath(path, parts);
-
-        // Resolve path
-        int idx = 0;
-        while (idx < (int)parts.size()) {
-            if (parts[idx] == ".") {
-                parts.erase(parts.begin() + idx);
-                continue;
-            }
-            if (parts[idx] == "..") {
-                auto iterLast = parts.begin() + idx + 1;
-                if (idx > 0)
-                    idx--;
-                auto iterFirst = parts.begin() + idx;
-                parts.erase(iterFirst, iterLast);
-                continue;
-            }
-            idx++;
-        }
-
-        if (!parts.empty() && wildCard != nullptr) {
-            const auto &lastPart = parts.back();
-            if (lastPart.find_first_of("?*") != lastPart.npos) {
-                // Contains wildcard, return it separately
-                *wildCard = lastPart;
-                parts.pop_back();
-            }
-        }
-
-        // Compose resolved path
-        std::string result;
-        for (auto &part : parts) {
-
-#ifdef EMULATOR
-#ifndef _WIN32
-            // Handle case-sensitive host file systems
-            auto curPartUpper = toUpper(part);
-            if (*vfs == getSDCardVFS()) {
-                auto [deResult, deCtx] = (*vfs)->direnum(result, 0);
-                if (deResult == 0) {
-                    for (auto &dee : *deCtx) {
-                        if (toUpper(dee.filename) == curPartUpper) {
-                            part = dee.filename;
-                            break;
-                        }
-                    }
-                }
-            }
-#endif
-#endif
-
-            if (!result.empty())
-                result += '/';
-            result += part;
-        }
-        return result;
-    }
-
-    static bool wildcardMatch(const std::string &text, const std::string &pattern) {
-        // Initialize the pointers to the current positions in the text and pattern strings.
-        int textPos    = 0;
-        int patternPos = 0;
-
-        // Loop while we have not reached the end of either string.
-        while (textPos < (int)text.size() && patternPos < (int)pattern.size()) {
-            if (pattern[patternPos] == '*') {
-                // Skip asterisk (and any following asterisks)
-                while (patternPos < (int)pattern.size() && pattern[patternPos] == '*') {
-                    patternPos++;
-                }
-                // If end of the pattern then we have a match
-                if (patternPos == (int)pattern.size()) {
-                    return true;
-                }
-                // Skip characters in text until we find one that matches the current pattern character
-                while (tolower(text[textPos]) != tolower(pattern[patternPos])) {
-                    textPos++;
-
-                    // Reached end of text, but not end of pattern, no match
-                    if (textPos == (int)text.size())
-                        return false;
-                }
-                continue;
-            }
-
-            // Check character match
-            if (pattern[patternPos] != '?' && (tolower(text[textPos]) != tolower(pattern[patternPos])))
-                return false;
-
-            textPos++;
-            patternPos++;
-        }
-
-        // If we reached the end of both strings, then the match is successful.
-        return (textPos == (int)text.size() && patternPos == (int)pattern.size());
-    }
-
-    void closeAllDescriptors() {
-        // Close any open descriptors
-        for (int i = 0; i < MAX_FDS; i++) {
-            if (fdVfs[i] != nullptr) {
-                fdVfs[i]->close(fds[i]);
-                fdVfs[i] = nullptr;
-            }
-        }
-        for (int i = 0; i < MAX_DDS; i++) {
-            deCtxs[i] = nullptr;
-        }
     }
 };
 
