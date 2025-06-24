@@ -7,7 +7,7 @@
 #include <esp_tls.h>
 #include <mdns.h>
 
-#include "xz.h"
+#include "VFS.h"
 
 static const char *TAG = "WiFi";
 
@@ -43,25 +43,11 @@ public:
         RecursiveMutexLock lock(mutex);
 
         // Initialize CA store
-        std::string certificates;
-        {
-            extern const uint8_t certificatesXzhStart[] asm("_binary_root_certificates_xzh_start");
-            extern const uint8_t certificatesXzhEnd[] asm("_binary_root_certificates_xzh_end");
-
-            auto outSize = *(uint32_t *)certificatesXzhStart;
-            certificates.resize(outSize);
-
-            if (xz_decompress(
-                    certificatesXzhStart + 4,
-                    (certificatesXzhEnd - certificatesXzhStart) - 4,
-                    (uint8_t *)certificates.data()) != XZ_SUCCESS) {
-                certificates.clear();
-            }
-        }
+        auto [result, certificates] = VFSContext::getDefault()->readFile("esp:root_certs", true);
 
         ESP_ERROR_CHECK(esp_tls_init_global_ca_store());
 
-        auto ret = esp_tls_set_global_ca_store((const uint8_t *)certificates.c_str(), certificates.size() + 1);
+        auto ret = esp_tls_set_global_ca_store(certificates.data(), certificates.size());
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "esp_tls_set_global_ca_store failed: %d", ret);
         }

@@ -55,8 +55,6 @@ idf_component_register(
     EMBED_FILES
         "assets/ovl_font.chr"
         "assets/romfs.bin"
-        "assets/aqp_top.bit.xzh"
-        "assets/root_certificates.xzh"
 )
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-missing-field-initializers)

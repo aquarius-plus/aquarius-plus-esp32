@@ -137,6 +137,8 @@ public:
     int chdir(const std::string &path);
     int stat(const std::string &path, struct stat *st);
 
+    std::pair<int, std::vector<uint8_t>> readFile(const std::string &path, bool zeroTerminate = false);
+
 private:
     std::string resolvePath(std::string path, VFS **vfs, std::string *wildCard = nullptr);
 

@@ -432,6 +432,35 @@ int VFSContext::stat(const std::string &pathArg, struct stat *st) {
     return vfs->stat(path, st);
 }
 
+std::pair<int, std::vector<uint8_t>> VFSContext::readFile(const std::string &pathArg, bool zeroTerminate) {
+    // Compose full path
+    VFS *vfs  = nullptr;
+    auto path = resolvePath(pathArg, &vfs);
+    if (!vfs)
+        return {ERR_PARAM, {}};
+
+    struct stat st;
+    int         res = vfs->stat(path, &st);
+    if (res < 0 || (st.st_mode & S_IFREG) == 0)
+        return {res, {}};
+
+    unsigned fileSize = st.st_size;
+
+    std::vector<uint8_t> data;
+    data.resize(fileSize + (zeroTerminate ? 1 : 0));
+
+    int fd = vfs->open(FO_RDONLY, path);
+    if (fd < 0)
+        return {fd, {}};
+    vfs->read(fd, st.st_size, data.data());
+    vfs->close(fd);
+
+    if (zeroTerminate)
+        data[fileSize] = 0;
+
+    return {0, data};
+}
+
 VFSContext *VFSContext::getDefault() {
     static VFSContext obj;
     return &obj;

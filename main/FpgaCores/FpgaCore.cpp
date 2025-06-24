@@ -3,6 +3,7 @@
 #include "xz.h"
 #include "DisplayOverlay/DisplayOverlay.h"
 #include "Keyboard.h"
+#include "VFS.h"
 
 static const char *TAG = "FpgaCore";
 
@@ -52,24 +53,12 @@ std::shared_ptr<FpgaCore> FpgaCore::loadAqPlus() {
 
 #ifndef EMULATOR
 #ifdef CONFIG_MACHINE_TYPE_AQPLUS
-    std::vector<uint8_t> fpgaImage;
-    {
-        extern const uint8_t fpgaImageXzhStart[] asm("_binary_aqp_top_bit_xzh_start");
-        extern const uint8_t fpgaImageXzhEnd[] asm("_binary_aqp_top_bit_xzh_end");
-
-        length = *(uint32_t *)fpgaImageXzhStart;
-        fpgaImage.resize(length);
-
-        if (xz_decompress(
-                fpgaImageXzhStart + 4,
-                (fpgaImageXzhEnd - fpgaImageXzhStart) - 4,
-                fpgaImage.data()) == XZ_SUCCESS) {
-
-            data = fpgaImage.data();
-        } else {
-            fpgaImage.clear();
-            length = 0;
-        }
+    auto [result, fpgaImage] = VFSContext::getDefault()->readFile("esp:aqplus.core");
+    if (result == 0) {
+        data   = fpgaImage.data();
+        length = fpgaImage.size();
+    } else {
+        ESP_LOGE(TAG, "readFile returned: %d", result);
     }
 #else
     extern const uint8_t fpgaImageStart[] asm("_binary_morphbook_aqplus_impl1_bit_start");

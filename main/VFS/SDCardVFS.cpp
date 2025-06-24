@@ -16,7 +16,7 @@
 
 static const char *TAG = "SDCardVFS";
 
-#define MAX_FDS (10)
+#define MAX_FDS (12)
 
 typedef union {
     struct {
