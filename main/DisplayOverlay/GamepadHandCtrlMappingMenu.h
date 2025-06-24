@@ -4,6 +4,28 @@
 #include "Keyboard.h"
 #include "GameCtrl.h"
 
+struct Gp2HcMapping {
+    bool    enabled          = true;
+    uint8_t buttonNumber[16] = {
+        1, // GCB_A_IDX
+        2, // GCB_B_IDX
+        3, // GCB_X_IDX
+        4, // GCB_Y_IDX
+        0, // GCB_VIEW_IDX
+        0, // GCB_GUIDE_IDX
+        0, // GCB_MENU_IDX
+        0, // GCB_LS_IDX
+        0, // GCB_RS_IDX
+        5, // GCB_LB_IDX
+        6, // GCB_RB_IDX
+        0, // GCB_DPAD_UP_IDX
+        0, // GCB_DPAD_DOWN_IDX
+        0, // GCB_DPAD_LEFT_IDX
+        0, // GCB_DPAD_RIGHT_IDX
+        0, // GCB_SHARE_IDX
+    };
+};
+
 class GamepadHandCtrlMappingMenu : public Menu {
 public:
     std::function<void()> onChange;
@@ -32,15 +54,14 @@ public:
         {"Share", GCB_SHARE_IDX},
     };
 
-    bool    enabled          = false;
-    uint8_t buttonNumber[16] = {0};
+    Gp2HcMapping settings;
 
     void onUpdate() override {
         items.clear();
         {
             auto &item  = items.emplace_back(MenuItemType::onOff, "Enable");
-            item.setter = [this](int newVal) { enabled = newVal != 0; onChange(); };
-            item.getter = [this]() { return enabled; };
+            item.setter = [this](int newVal) { settings.enabled = newVal != 0; onChange(); };
+            item.getter = [this]() { return settings.enabled; };
         }
         items.emplace_back(MenuItemType::separator);
         {
@@ -57,10 +78,10 @@ public:
             auto buttonIdx = button.buttonIdx;
             char assigned[20];
 
-            if (buttonNumber[buttonIdx] == 0) {
+            if (settings.buttonNumber[buttonIdx] == 0) {
                 snprintf(assigned, sizeof(assigned), "Unassigned");
             } else {
-                snprintf(assigned, sizeof(assigned), "%u", buttonNumber[buttonIdx]);
+                snprintf(assigned, sizeof(assigned), "%u", settings.buttonNumber[buttonIdx]);
             }
 
             char tmp[37];
@@ -70,9 +91,9 @@ public:
                 drawMessage("Press 1-6 or ESC to unassign");
                 int ch = Keyboard::instance()->getKey(portMAX_DELAY);
                 if (ch == 3) {
-                    buttonNumber[buttonIdx] = 0;
+                    settings.buttonNumber[buttonIdx] = 0;
                 } else if (ch >= '1' && ch <= '6') {
-                    buttonNumber[buttonIdx] = ch - '0';
+                    settings.buttonNumber[buttonIdx] = ch - '0';
                 }
                 onChange();
                 setNeedsUpdate();

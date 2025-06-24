@@ -4,6 +4,11 @@
 #include "Keyboard.h"
 #include "GameCtrl.h"
 
+struct Gp2KbMapping {
+    bool    enabled             = false;
+    uint8_t buttonScanCodes[16] = {0};
+};
+
 class GamepadKeyboardMappingMenu : public Menu {
 public:
     std::function<void()> onChange;
@@ -36,15 +41,14 @@ public:
         {"Share", GCB_SHARE_IDX},
     };
 
-    bool    enabled             = false;
-    uint8_t buttonScanCodes[16] = {0};
+    Gp2KbMapping settings;
 
     void onUpdate() override {
         items.clear();
         {
             auto &item  = items.emplace_back(MenuItemType::onOff, "Enable");
-            item.setter = [this](int newVal) { enabled = newVal != 0; onChange(); };
-            item.getter = [this]() { return enabled; };
+            item.setter = [this](int newVal) { settings.enabled = newVal != 0; onChange(); };
+            item.getter = [this]() { return settings.enabled; };
         }
         items.emplace_back(MenuItemType::separator);
         {
@@ -60,7 +64,7 @@ public:
         for (auto &button : buttons) {
             auto    buttonIdx = button.buttonIdx;
             char    assigned[20];
-            uint8_t scanCode = buttonScanCodes[buttonIdx];
+            uint8_t scanCode = settings.buttonScanCodes[buttonIdx];
 
             if (scanCode == 0) {
                 snprintf(assigned, sizeof(assigned), "Unassigned");
@@ -81,9 +85,9 @@ public:
                 int scanCode = Keyboard::instance()->waitScanCode();
                 Keyboard::instance()->getKey(pdMS_TO_TICKS(100));
                 if (scanCode == SCANCODE_ESCAPE) {
-                    buttonScanCodes[buttonIdx] = 0;
+                    settings.buttonScanCodes[buttonIdx] = 0;
                 } else {
-                    buttonScanCodes[buttonIdx] = scanCode;
+                    settings.buttonScanCodes[buttonIdx] = scanCode;
                 }
                 onChange();
                 setNeedsUpdate();

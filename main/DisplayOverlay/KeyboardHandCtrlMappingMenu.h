@@ -4,6 +4,18 @@
 #include "Keyboard.h"
 #include "GameCtrl.h"
 
+struct Kb2HcMapping {
+    uint8_t enabled            = false;
+    uint8_t buttonScanCodes[6] = {
+        SCANCODE_INSERT,
+        SCANCODE_HOME,
+        SCANCODE_PAGEUP,
+        SCANCODE_DELETE,
+        SCANCODE_END,
+        SCANCODE_PAGEDOWN,
+    };
+};
+
 class KeyboardHandCtrlMappingMenu : public Menu {
 public:
     std::function<void()> onChange;
@@ -13,15 +25,14 @@ public:
     KeyboardHandCtrlMappingMenu() : Menu("Keyboard to hand ctrl mapping", 38) {
     }
 
-    bool    enabled            = false;
-    uint8_t buttonScanCodes[6] = {0};
+    Kb2HcMapping settings;
 
     void onUpdate() override {
         items.clear();
         {
             auto &item  = items.emplace_back(MenuItemType::onOff, "Enable");
-            item.setter = [this](int newVal) { enabled = newVal != 0; onChange(); };
-            item.getter = [this]() { return enabled; };
+            item.setter = [this](int newVal) { settings.enabled = newVal != 0; onChange(); };
+            item.getter = [this]() { return settings.enabled; };
         }
         items.emplace_back(MenuItemType::separator);
         {
@@ -37,11 +48,11 @@ public:
         for (int i = 0; i < 6; i++) {
             char assigned[20];
 
-            if (buttonScanCodes[i] == 0) {
+            if (settings.buttonScanCodes[i] == 0) {
                 snprintf(assigned, sizeof(assigned), "Unassigned");
             } else {
 
-                snprintf(assigned, sizeof(assigned), "%s", getScanCodeName(buttonScanCodes[i]));
+                snprintf(assigned, sizeof(assigned), "%s", getScanCodeName(settings.buttonScanCodes[i]));
             }
 
             char tmp[37];
@@ -52,9 +63,9 @@ public:
                 int scanCode = Keyboard::instance()->waitScanCode();
                 Keyboard::instance()->getKey(pdMS_TO_TICKS(100));
                 if (scanCode == SCANCODE_ESCAPE) {
-                    buttonScanCodes[i] = 0;
+                    settings.buttonScanCodes[i] = 0;
                 } else {
-                    buttonScanCodes[i] = scanCode;
+                    settings.buttonScanCodes[i] = scanCode;
                 }
 
                 onChange();

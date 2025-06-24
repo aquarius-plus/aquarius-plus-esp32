@@ -37,34 +37,24 @@ class CoreAquariusPlus : public FpgaCore {
 public:
     SemaphoreHandle_t mutex;
     GamePadData       gamePads[2];
-    uint64_t          prevMatrix                    = 0;
-    uint64_t          keybMatrix                    = 0;
-    uint8_t           videoTimingMode               = 0;
-    bool              useT80                        = false;
-    bool              forceTurbo                    = false;
-    bool              gamepadNavigation             = false;
-    bool              bypassStartScreen             = false;
-    TimerHandle_t     bypassStartTimer              = nullptr;
-    bool              bypassStartCancel             = false;
-    bool              enableKeyboardHandCtrlMapping = false;
-    bool              enableGamePadHandCtrlMapping  = true;
-    bool              enableGamePadKeyboardMapping  = false;
-    uint8_t           gamePadButtonScanCodes[16]    = {0};
-    unsigned          keybHandCtrl1Pressed          = 0;
-    uint8_t           keybHandCtrl1                 = 0xFF;
-    uint8_t           gamePadHandCtrl[2]            = {0xFF, 0xFF};
-    bool              warmReset                     = false;
-    uint8_t           keyMode                       = 3;
+    uint64_t          prevMatrix           = 0;
+    uint64_t          keybMatrix           = 0;
+    uint8_t           videoTimingMode      = 0;
+    bool              useT80               = false;
+    bool              forceTurbo           = false;
+    bool              gamepadNavigation    = false;
+    bool              bypassStartScreen    = false;
+    TimerHandle_t     bypassStartTimer     = nullptr;
+    bool              bypassStartCancel    = false;
+    unsigned          keybHandCtrl1Pressed = 0;
+    uint8_t           keybHandCtrl1        = 0xFF;
+    uint8_t           gamePadHandCtrl[2]   = {0xFF, 0xFF};
+    bool              warmReset            = false;
+    uint8_t           keyMode              = 3;
 
-    uint8_t keyboardHandCtrlButtonScanCodes[6] = {
-        SCANCODE_INSERT,
-        SCANCODE_HOME,
-        SCANCODE_PAGEUP,
-        SCANCODE_DELETE,
-        SCANCODE_END,
-        SCANCODE_PAGEDOWN,
-    };
-    uint8_t gamePadButtonHandCtrlButtonIdxs[16];
+    Kb2HcMapping kb2hcSettings; // Keyboard to hand controller mapping
+    Gp2HcMapping gp2hcSettings; // Gamepad to hand controller mapping
+    Gp2KbMapping gp2kbSettings; // Gamepad to keyboard mapping
 
     // Mouse state
     bool    mousePresent = false;
@@ -77,23 +67,6 @@ public:
 
     CoreAquariusPlus() {
         memset(gamePads, 0, sizeof(gamePads));
-
-        gamePadButtonHandCtrlButtonIdxs[GCB_A_IDX]          = 1;
-        gamePadButtonHandCtrlButtonIdxs[GCB_B_IDX]          = 2;
-        gamePadButtonHandCtrlButtonIdxs[GCB_X_IDX]          = 3;
-        gamePadButtonHandCtrlButtonIdxs[GCB_Y_IDX]          = 4;
-        gamePadButtonHandCtrlButtonIdxs[GCB_VIEW_IDX]       = 0;
-        gamePadButtonHandCtrlButtonIdxs[GCB_GUIDE_IDX]      = 0;
-        gamePadButtonHandCtrlButtonIdxs[GCB_MENU_IDX]       = 0;
-        gamePadButtonHandCtrlButtonIdxs[GCB_LS_IDX]         = 0;
-        gamePadButtonHandCtrlButtonIdxs[GCB_RS_IDX]         = 0;
-        gamePadButtonHandCtrlButtonIdxs[GCB_LB_IDX]         = 5;
-        gamePadButtonHandCtrlButtonIdxs[GCB_RB_IDX]         = 6;
-        gamePadButtonHandCtrlButtonIdxs[GCB_DPAD_UP_IDX]    = 0;
-        gamePadButtonHandCtrlButtonIdxs[GCB_DPAD_DOWN_IDX]  = 0;
-        gamePadButtonHandCtrlButtonIdxs[GCB_DPAD_LEFT_IDX]  = 0;
-        gamePadButtonHandCtrlButtonIdxs[GCB_DPAD_RIGHT_IDX] = 0;
-        gamePadButtonHandCtrlButtonIdxs[GCB_SHARE_IDX]      = 0;
 
         mutex            = xSemaphoreCreateRecursiveMutex();
         bypassStartTimer = xTimerCreate("", pdMS_TO_TICKS(CONFIG_BYPASS_START_TIME_MS), pdFALSE, this, _onBypassStartTimer);
@@ -153,6 +126,21 @@ public:
             }
             if (nvs_get_u8(h, "gamepadNav", &val8) == ESP_OK) {
                 gamepadNavigation = val8 != 0;
+            }
+
+            size_t sz;
+
+            sz = sizeof(kb2hcSettings);
+            if (nvs_get_blob(h, "kb2hc", &kb2hcSettings, &sz) != ESP_OK || sz != sizeof(kb2hcSettings)) {
+                kb2hcSettings = Kb2HcMapping();
+            }
+            sz = sizeof(gp2hcSettings);
+            if (nvs_get_blob(h, "gp2hc", &gp2hcSettings, &sz) != ESP_OK || sz != sizeof(gp2hcSettings)) {
+                gp2hcSettings = Gp2HcMapping();
+            }
+            sz = sizeof(gp2kbSettings);
+            if (nvs_get_blob(h, "gp2kb", &gp2kbSettings, &sz) != ESP_OK || sz != sizeof(gp2kbSettings)) {
+                gp2kbSettings = Gp2KbMapping();
             }
 
             nvs_close(h);
@@ -304,7 +292,7 @@ public:
 
     bool handControllerEmulate(unsigned scanCode, bool keyDown) {
         keybHandCtrl1 = 0xFF;
-        if (!enableKeyboardHandCtrlMapping)
+        if (!kb2hcSettings.enabled)
             return false;
 
         bool result = true;
@@ -330,17 +318,17 @@ public:
             keybHandCtrl1Pressed = keyDown ? (keybHandCtrl1Pressed | LEFT) : (keybHandCtrl1Pressed & ~LEFT);
         else if (scanCode == SCANCODE_RIGHT)
             keybHandCtrl1Pressed = keyDown ? (keybHandCtrl1Pressed | RIGHT) : (keybHandCtrl1Pressed & ~RIGHT);
-        else if (scanCode == keyboardHandCtrlButtonScanCodes[0])
+        else if (scanCode == kb2hcSettings.buttonScanCodes[0])
             keybHandCtrl1Pressed = keyDown ? (keybHandCtrl1Pressed | K1) : (keybHandCtrl1Pressed & ~K1);
-        else if (scanCode == keyboardHandCtrlButtonScanCodes[1])
+        else if (scanCode == kb2hcSettings.buttonScanCodes[1])
             keybHandCtrl1Pressed = keyDown ? (keybHandCtrl1Pressed | K2) : (keybHandCtrl1Pressed & ~K2);
-        else if (scanCode == keyboardHandCtrlButtonScanCodes[2])
+        else if (scanCode == kb2hcSettings.buttonScanCodes[2])
             keybHandCtrl1Pressed = keyDown ? (keybHandCtrl1Pressed | K3) : (keybHandCtrl1Pressed & ~K3);
-        else if (scanCode == keyboardHandCtrlButtonScanCodes[3])
+        else if (scanCode == kb2hcSettings.buttonScanCodes[3])
             keybHandCtrl1Pressed = keyDown ? (keybHandCtrl1Pressed | K4) : (keybHandCtrl1Pressed & ~K4);
-        else if (scanCode == keyboardHandCtrlButtonScanCodes[4])
+        else if (scanCode == kb2hcSettings.buttonScanCodes[4])
             keybHandCtrl1Pressed = keyDown ? (keybHandCtrl1Pressed | K5) : (keybHandCtrl1Pressed & ~K5);
-        else if (scanCode == keyboardHandCtrlButtonScanCodes[5])
+        else if (scanCode == kb2hcSettings.buttonScanCodes[5])
             keybHandCtrl1Pressed = keyDown ? (keybHandCtrl1Pressed | K6) : (keybHandCtrl1Pressed & ~K6);
         else
             result = false;
@@ -552,7 +540,7 @@ public:
         gamePadHandCtrl[0] = 0xFF;
         gamePadHandCtrl[1] = 0xFF;
 
-        if (!enableGamePadHandCtrlMapping)
+        if (!gp2hcSettings.enabled)
             return;
 
         static const uint8_t buttonMasks[] = {
@@ -569,7 +557,7 @@ public:
                 if ((gamePads[i].buttons & (1 << btnIdx)) == 0)
                     continue;
 
-                uint8_t button = gamePadButtonHandCtrlButtonIdxs[btnIdx];
+                uint8_t button = gp2hcSettings.buttonNumber[btnIdx];
                 if (button >= 1 && button <= 6)
                     gamePadHandCtrl[i] &= ~buttonMasks[button - 1];
             }
@@ -668,10 +656,10 @@ public:
                 }
             }
 
-            if (!overlayVisible && enableGamePadKeyboardMapping) {
+            if (!overlayVisible && gp2kbSettings.enabled) {
                 for (int i = 0; i < 16; i++) {
-                    if (gamePadButtonScanCodes[i] != 0 && changed & (1 << i))
-                        kb->handleScancode(gamePadButtonScanCodes[i], (data.buttons & (1 << i)) != 0);
+                    if (gp2kbSettings.buttonScanCodes[i] != 0 && changed & (1 << i))
+                        kb->handleScancode(gp2kbSettings.buttonScanCodes[i], (data.buttons & (1 << i)) != 0);
                 }
             }
         }
@@ -955,14 +943,20 @@ public:
             auto &item   = menu.items.emplace_back(MenuItemType::subMenu, "Keyboard to hand ctrl mapping");
             item.onEnter = [this]() {
                 KeyboardHandCtrlMappingMenu menu;
-                menu.enabled = enableKeyboardHandCtrlMapping;
-                memcpy(menu.buttonScanCodes, keyboardHandCtrlButtonScanCodes, sizeof(menu.buttonScanCodes));
+                menu.settings = kb2hcSettings;
                 menu.onChange = [this, &menu]() {
-                    enableKeyboardHandCtrlMapping = menu.enabled;
-                    memcpy(keyboardHandCtrlButtonScanCodes, menu.buttonScanCodes, sizeof(keyboardHandCtrlButtonScanCodes));
+                    kb2hcSettings = menu.settings;
+
+                    nvs_handle_t h;
+                    if (nvs_open("settings", NVS_READWRITE, &h) == ESP_OK) {
+                        if (nvs_set_blob(h, "kb2hc", &kb2hcSettings, sizeof(kb2hcSettings)) == ESP_OK) {
+                            nvs_commit(h);
+                        }
+                        nvs_close(h);
+                    }
                 };
-                menu.onSave = [this, &menu]() { savePreset(menu, "map_kb_hc", menu.buttonScanCodes, sizeof(menu.buttonScanCodes)); };
-                menu.onLoad = [this, &menu]() { loadPreset("map_kb_hc", menu.buttonScanCodes, sizeof(menu.buttonScanCodes)); menu.onChange(); };
+                menu.onSave = [this, &menu]() { savePreset(menu, "map_kb_hc", menu.settings.buttonScanCodes, sizeof(menu.settings.buttonScanCodes)); };
+                menu.onLoad = [this, &menu]() { loadPreset("map_kb_hc", menu.settings.buttonScanCodes, sizeof(menu.settings.buttonScanCodes)); menu.onChange(); };
                 menu.show();
             };
         }
@@ -970,14 +964,20 @@ public:
             auto &item   = menu.items.emplace_back(MenuItemType::subMenu, "Gamepad to hand ctrl mapping");
             item.onEnter = [this]() {
                 GamepadHandCtrlMappingMenu menu;
-                menu.enabled = enableGamePadHandCtrlMapping;
-                memcpy(menu.buttonNumber, gamePadButtonHandCtrlButtonIdxs, sizeof(menu.buttonNumber));
+                menu.settings = gp2hcSettings;
                 menu.onChange = [this, &menu]() {
-                    enableGamePadHandCtrlMapping = menu.enabled;
-                    memcpy(gamePadButtonHandCtrlButtonIdxs, menu.buttonNumber, sizeof(gamePadButtonHandCtrlButtonIdxs));
+                    gp2hcSettings = menu.settings;
+
+                    nvs_handle_t h;
+                    if (nvs_open("settings", NVS_READWRITE, &h) == ESP_OK) {
+                        if (nvs_set_blob(h, "gp2hc", &gp2hcSettings, sizeof(gp2hcSettings)) == ESP_OK) {
+                            nvs_commit(h);
+                        }
+                        nvs_close(h);
+                    }
                 };
-                menu.onSave = [this, &menu]() { savePreset(menu, "map_gp_hc", menu.buttonNumber, sizeof(menu.buttonNumber)); };
-                menu.onLoad = [this, &menu]() { loadPreset("map_gp_hc", menu.buttonNumber, sizeof(menu.buttonNumber)); menu.onChange(); };
+                menu.onSave = [this, &menu]() { savePreset(menu, "map_gp_hc", menu.settings.buttonNumber, sizeof(menu.settings.buttonNumber)); };
+                menu.onLoad = [this, &menu]() { loadPreset("map_gp_hc", menu.settings.buttonNumber, sizeof(menu.settings.buttonNumber)); menu.onChange(); };
                 menu.show();
             };
         }
@@ -985,14 +985,20 @@ public:
             auto &item   = menu.items.emplace_back(MenuItemType::subMenu, "Gamepad to keyboard mapping");
             item.onEnter = [this]() {
                 GamepadKeyboardMappingMenu menu;
-                menu.enabled = enableGamePadKeyboardMapping;
-                memcpy(menu.buttonScanCodes, gamePadButtonScanCodes, sizeof(menu.buttonScanCodes));
+                menu.settings = gp2kbSettings;
                 menu.onChange = [this, &menu]() {
-                    enableGamePadKeyboardMapping = menu.enabled;
-                    memcpy(gamePadButtonScanCodes, menu.buttonScanCodes, sizeof(gamePadButtonScanCodes));
+                    gp2kbSettings = menu.settings;
+
+                    nvs_handle_t h;
+                    if (nvs_open("settings", NVS_READWRITE, &h) == ESP_OK) {
+                        if (nvs_set_blob(h, "gp2kb", &gp2kbSettings, sizeof(gp2kbSettings)) == ESP_OK) {
+                            nvs_commit(h);
+                        }
+                        nvs_close(h);
+                    }
                 };
-                menu.onSave = [this, &menu]() { savePreset(menu, "map_gp_kb", menu.buttonScanCodes, sizeof(menu.buttonScanCodes)); };
-                menu.onLoad = [this, &menu]() { loadPreset("map_gp_kb", menu.buttonScanCodes, sizeof(menu.buttonScanCodes)); menu.onChange(); };
+                menu.onSave = [this, &menu]() { savePreset(menu, "map_gp_kb", menu.settings.buttonScanCodes, sizeof(menu.settings.buttonScanCodes)); };
+                menu.onLoad = [this, &menu]() { loadPreset("map_gp_kb", menu.settings.buttonScanCodes, sizeof(menu.settings.buttonScanCodes)); menu.onChange(); };
                 menu.show();
             };
         }
