@@ -92,7 +92,7 @@ public:
 
     int read(int fd, size_t size, void *buf) override {
         if (fd == 0) {
-            int remaining = openFile.data.size() - openFile.offset;
+            int remaining = (int)(openFile.data.size() - openFile.offset);
             if ((int)size > remaining) {
                 size = remaining;
             }

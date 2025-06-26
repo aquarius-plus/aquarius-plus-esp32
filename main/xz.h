@@ -18,11 +18,11 @@ enum xz_ret {
 
 struct xz_buf {
     const uint8_t *in;
-    size_t         in_pos;
-    size_t         in_size;
+    unsigned       in_pos;
+    unsigned       in_size;
     uint8_t       *out;
-    size_t         out_pos;
-    size_t         out_size;
+    unsigned       out_pos;
+    unsigned       out_size;
 };
 
 enum xz_ret xz_decompress(const uint8_t *in, int in_size, uint8_t *out);

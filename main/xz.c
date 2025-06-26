@@ -237,26 +237,26 @@ struct dictionary {
     uint8_t *buf;
 
     /* Old position in buf (before decoding more data) */
-    size_t start;
+    unsigned start;
 
     /* Position in buf */
-    size_t pos;
+    unsigned pos;
 
     /*
      * How full dictionary is. This is used to detect corrupt input that
      * would read beyond the beginning of the uncompressed stream.
      */
-    size_t full;
+    unsigned full;
 
     /* Write limit; we don't write to buf[limit] or later bytes. */
-    size_t limit;
+    unsigned limit;
 
     /*
      * End of the dictionary buffer. In multi-call mode, this is
      * the same as the dictionary size. In single-call mode, this
      * indicates the size of the output buffer.
      */
-    size_t end;
+    unsigned end;
 
     /*
      * Size of the dictionary as specified in Block Header. This is used
@@ -295,8 +295,8 @@ struct rc_dec {
      * temp.buf or the caller-provided input buffer.
      */
     const uint8_t *in;
-    size_t         in_pos;
-    size_t         in_limit;
+    unsigned       in_pos;
+    unsigned       in_limit;
 };
 
 /* Probabilities for a length decoder. */
@@ -482,7 +482,7 @@ static void dict_reset(struct dictionary *dict, struct xz_buf *b) {
 }
 
 /* Set dictionary write limit */
-static void dict_limit(struct dictionary *dict, size_t out_max) {
+static void dict_limit(struct dictionary *dict, unsigned out_max) {
     if (dict->end - dict->pos <= out_max)
         dict->limit = dict->end;
     else
@@ -501,7 +501,7 @@ static inline bool dict_has_space(const struct dictionary *dict) {
  * avoid writing a '\0' to the end of the destination buffer.
  */
 static inline uint32_t dict_get(const struct dictionary *dict, uint32_t dist) {
-    size_t offset = dict->pos - dist - 1;
+    unsigned offset = dict->pos - dist - 1;
 
     if (dist >= dict->pos)
         offset += dict->end;
@@ -525,7 +525,7 @@ static inline void dict_put(struct dictionary *dict, uint8_t byte) {
  * updated to indicate how many bytes were left to be repeated.
  */
 static bool dict_repeat(struct dictionary *dict, uint32_t *len, uint32_t dist) {
-    size_t   back;
+    unsigned back;
     uint32_t left;
 
     if (dist >= dict->full || dist >= dict->size)
@@ -552,7 +552,7 @@ static bool dict_repeat(struct dictionary *dict, uint32_t *len, uint32_t dist) {
 
 /* Copy uncompressed data as is from input to dictionary and output buffers. */
 static void dict_uncompressed(struct dictionary *dict, struct xz_buf *b, uint32_t *left) {
-    size_t copy_size;
+    unsigned copy_size;
 
     while (*left > 0 && b->in_pos < b->in_size && b->out_pos < b->out_size) {
         copy_size = min(b->in_size - b->in_pos, b->out_size - b->out_pos);
@@ -589,7 +589,7 @@ static void dict_uncompressed(struct dictionary *dict, struct xz_buf *b, uint32_
  * before decoding data into the dictionary.
  */
 static uint32_t dict_flush(struct dictionary *dict, struct xz_buf *b) {
-    size_t copy_size = dict->pos - dict->start;
+    unsigned copy_size = dict->pos - dict->start;
 
     dict->start = dict->pos;
     b->out_pos += copy_size;
@@ -907,7 +907,7 @@ static bool lzma_main(struct xz_dec_lzma2 *s) {
  */
 static void lzma_reset(struct xz_dec_lzma2 *s) {
     uint16_t *probs;
-    size_t    i;
+    unsigned  i;
 
     s->lzma.state = STATE_LIT_LIT;
     s->lzma.rep0  = 0;
@@ -983,7 +983,7 @@ static bool lzma_props(struct xz_dec_lzma2 *s, uint8_t props) {
  * continue decoding from the caller-supplied input buffer again.
  */
 static bool lzma2_lzma(struct xz_dec_lzma2 *s, struct xz_buf *b) {
-    size_t   in_avail;
+    unsigned in_avail;
     uint32_t tmp;
 
     in_avail = b->in_size - b->in_pos;
@@ -1333,8 +1333,8 @@ struct xz_dec {
     vli_type vli;
 
     /* Saved in_pos and out_pos */
-    size_t in_start;
-    size_t out_start;
+    unsigned in_start;
+    unsigned out_start;
 
     /* CRC32 value in Block or Index */
     uint32_t crc;
@@ -1410,13 +1410,13 @@ struct xz_dec {
      * Temporary buffer needed to hold Stream Header, Block Header,
      * and Stream Footer. The Block Header is the biggest (1 KiB)
      * so we reserve space according to that. buf[] has to be aligned
-     * to a multiple of four bytes; the size_t variables before it
+     * to a multiple of four bytes; the unsigned variables before it
      * should guarantee this.
      */
     struct {
-        size_t  pos;
-        size_t  size;
-        uint8_t buf[1024];
+        unsigned pos;
+        unsigned size;
+        uint8_t  buf[1024];
     } temp;
 
     struct xz_dec_lzma2 *lzma2;
@@ -1435,7 +1435,7 @@ static void xz_crc32_init(void) {
     }
 }
 
-static uint32_t xz_crc32(const uint8_t *buf, size_t size, uint32_t crc) {
+static uint32_t xz_crc32(const uint8_t *buf, unsigned size, uint32_t crc) {
     crc = ~crc;
     while (size != 0) {
         crc = xz_crc32_table[*buf++ ^ (crc & 0xFF)] ^ (crc >> 8);
@@ -1451,7 +1451,7 @@ static uint32_t xz_crc32(const uint8_t *buf, size_t size, uint32_t crc) {
  * s->temp.size.
  */
 static bool fill_temp(struct xz_dec *s, struct xz_buf *b) {
-    size_t copy_size = min(b->in_size - b->in_pos, s->temp.size - s->temp.pos);
+    unsigned copy_size = min(b->in_size - b->in_pos, s->temp.size - s->temp.pos);
 
     memcpy(s->temp.buf + s->temp.pos, b->in + b->in_pos, copy_size);
     b->in_pos += copy_size;
@@ -1466,7 +1466,7 @@ static bool fill_temp(struct xz_dec *s, struct xz_buf *b) {
 }
 
 /* Decode a variable-length integer (little-endian base-128 encoding) */
-static enum xz_ret dec_vli(struct xz_dec *s, const uint8_t *in, size_t *in_pos, size_t in_size) {
+static enum xz_ret dec_vli(struct xz_dec *s, const uint8_t *in, unsigned *in_pos, unsigned in_size) {
     uint8_t byte;
 
     if (s->pos == 0)
@@ -1555,7 +1555,7 @@ static enum xz_ret dec_block(struct xz_dec *s, struct xz_buf *b) {
 
 /* Update the Index size and the CRC32 value. */
 static void index_update(struct xz_dec *s, const struct xz_buf *b) {
-    size_t in_used = b->in_pos - s->in_start;
+    unsigned in_used = b->in_pos - s->in_start;
     s->index.size += in_used;
     s->crc = xz_crc32(b->in + s->in_start, in_used, s->crc);
 }
@@ -1951,8 +1951,8 @@ static void xz_dec_reset(struct xz_dec *s) {
  * the workspace).
  */
 static enum xz_ret xz_dec_run(struct xz_dec *s, struct xz_buf *b) {
-    size_t      in_start;
-    size_t      out_start;
+    unsigned    in_start;
+    unsigned    out_start;
     enum xz_ret ret;
 
     xz_dec_reset(s);
@@ -2004,7 +2004,7 @@ enum xz_ret xz_decompress(const uint8_t *in, int in_size, uint8_t *out) {
 
     struct xz_buf b;
     b.out      = out;
-    b.out_size = (size_t)-1;
+    b.out_size = (unsigned)-1;
     b.in       = in;
     b.in_pos   = 0;
     b.in_size  = in_size;
