@@ -11,6 +11,8 @@ struct GamePadData {
     uint16_t buttons;
 };
 
+static_assert(sizeof(GamePadData) == 8);
+
 enum class FpgaCoreType {
     AquariusPlus = 1,
     Aquarius32   = 2,

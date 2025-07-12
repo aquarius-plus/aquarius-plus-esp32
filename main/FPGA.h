@@ -10,6 +10,8 @@ enum {
     CMD_SET_HCTRL       = 0x11,
     CMD_WRITE_KBBUF     = 0x12,
     CMD_WRITE_KBBUF16   = 0x13,
+    CMD_WRITE_GAMEPAD1  = 0x14,
+    CMD_WRITE_GAMEPAD2  = 0x15,
     CMD_BUS_ACQUIRE     = 0x20,
     CMD_BUS_RELEASE     = 0x21,
     CMD_MEM_WRITE       = 0x22,

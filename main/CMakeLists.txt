@@ -41,6 +41,7 @@ idf_component_register(
         "VFS/TcpVFS.cpp"
 
         "FpgaCores/FpgaCore.cpp"
+        "FpgaCores/KbHcEmu.cpp"
         "FpgaCores/AquariusPlus/CoreAquariusPlus.cpp"
         "FpgaCores/Aquarius32/CoreAquarius32.cpp"
 

@@ -3,6 +3,7 @@
 #include "Menu.h"
 #include "Keyboard.h"
 #include "GameCtrl.h"
+#include "VFS.h"
 
 class FileListMenu : public Menu {
 public:

@@ -1,38 +1,18 @@
-#include "Common.h"
 #include "FpgaCore.h"
+
+#include "Common.h"
 #include "FPGA.h"
+#include "KbHcEmu.h"
 #include "Keyboard.h"
 #include "UartProtocol.h"
 #include "VFS.h"
-#define _USE_MATH_DEFINES
-#include <math.h>
+
 #include <nvs_flash.h>
-#include "DisplayOverlay/DisplayOverlay.h"
-#include "DisplayOverlay/FileListMenu.h"
-
-enum {
-    IO_VCTRL    = 0xE0,
-    IO_VPALSEL  = 0xEA,
-    IO_VPALDATA = 0xEB,
-    IO_BANK0    = 0xF0,
-    IO_BANK1    = 0xF1,
-    IO_BANK2    = 0xF2,
-    IO_BANK3    = 0xF3,
-};
-
-enum {
-    FLAG_HAS_Z80       = (1 << 0),
-    FLAG_MOUSE_SUPPORT = (1 << 1),
-    FLAG_VIDEO_TIMING  = (1 << 2),
-    FLAG_AQPLUS        = (1 << 3),
-    FLAG_FORCE_TURBO   = (1 << 4),
-};
 
 class CoreAquarius32 : public FpgaCore {
 public:
     SemaphoreHandle_t mutex;
-    GamePadData       gamePads[2];
-    bool              gamepadNavigation = false;
+    KbHcEmu           kbHcEmu;
 
     // Mouse state
     bool    mousePresent = false;
@@ -44,11 +24,15 @@ public:
     uint8_t mouseSensitivityDiv = 4;
 
     CoreAquarius32() {
-        memset(gamePads, 0, sizeof(gamePads));
         mutex = xSemaphoreCreateRecursiveMutex();
 
+        kbHcEmu.coreName         = getCoreInfo()->name;
+        kbHcEmu.updateHandCtrl   = [this](uint8_t hctrl1, uint8_t hctrl2) { aqpUpdateHandCtrl(hctrl1, hctrl2); };
+        kbHcEmu.updateKeybMatrix = [this](uint64_t val) { aqpUpdateKeybMatrix(val); };
+        kbHcEmu.updateGamePad    = [this](unsigned idx, const GamePadData &data) { aqpUpdateKeybMatrix(idx, data); };
+
         UartProtocol::instance()->setBaudrate(25175000 / 6);
-        applySettings();
+        loadSettings();
         Keyboard::instance()->reset(false);
     }
 
@@ -56,19 +40,15 @@ public:
         vSemaphoreDelete(mutex);
     }
 
-    void applySettings() {
+    void loadSettings() {
+        kbHcEmu.loadSettings();
+
         nvs_handle_t h;
         if (nvs_open("settings", NVS_READONLY, &h) == ESP_OK) {
             uint8_t mouseDiv = 0;
             if (nvs_get_u8(h, "mouseDiv", &mouseDiv) == ESP_OK) {
                 mouseSensitivityDiv = mouseDiv;
             }
-
-            uint8_t val8 = 0;
-            if (nvs_get_u8(h, "gamepadNav", &val8) == ESP_OK) {
-                gamepadNavigation = val8 != 0;
-            }
-
             nvs_close(h);
         }
         resetCore();
@@ -94,6 +74,37 @@ public:
         fpga->spiSel(false);
     }
 
+    void aqpUpdateKeybMatrix(uint64_t keybMatrix) {
+        auto               fpga = FPGA::instance();
+        RecursiveMutexLock lock(fpga->getMutex());
+        fpga->spiSel(true);
+        uint8_t cmd[9];
+        cmd[0] = CMD_SET_KEYB_MATRIX;
+        memcpy(&cmd[1], &keybMatrix, 8);
+        fpga->spiTx(cmd, sizeof(cmd));
+        fpga->spiSel(false);
+    }
+
+    void aqpUpdateKeybMatrix(unsigned idx, const GamePadData &data) {
+        auto               fpga = FPGA::instance();
+        RecursiveMutexLock lock(fpga->getMutex());
+        fpga->spiSel(true);
+        uint8_t cmd[9];
+        cmd[0] = (idx == 0) ? CMD_WRITE_GAMEPAD1 : CMD_WRITE_GAMEPAD2;
+        memcpy(&cmd[1], &data, 8);
+        fpga->spiTx(cmd, sizeof(cmd));
+        fpga->spiSel(false);
+    }
+
+    void aqpUpdateHandCtrl(uint8_t hctrl1, uint8_t hctrl2) {
+        auto               fpga = FPGA::instance();
+        RecursiveMutexLock lock(fpga->getMutex());
+        fpga->spiSel(true);
+        uint8_t cmd[] = {CMD_SET_HCTRL, hctrl1, hctrl2};
+        fpga->spiTx(cmd, sizeof(cmd));
+        fpga->spiSel(false);
+    }
+
     void resetCore() override {
         auto               fpga = FPGA::instance();
         RecursiveMutexLock lock(fpga->getMutex());
@@ -106,6 +117,8 @@ public:
 
     bool keyScancode(uint8_t modifiers, unsigned scanCode, bool keyDown) override {
         RecursiveMutexLock lock(mutex);
+        if (kbHcEmu.keyScancode(modifiers, scanCode, keyDown))
+            return true;
 
         if (scanCode <= 255) {
             aqpWriteKeybBuffer16(
@@ -162,55 +175,13 @@ public:
     }
 
     void gamepadReport(unsigned idx, const GamePadData &data) override {
-        if (idx > 1)
-            return;
-
         RecursiveMutexLock lock(mutex);
-
-        uint16_t pressed = (~gamePads[idx].buttons & data.buttons);
-        uint16_t changed = (gamePads[idx].buttons ^ data.buttons);
-
-        // printf("idx=%u pressed=%04X\n", idx, pressed);
-
-        if (idx == 0) {
-            bool overlayVisible = getDisplayOverlay()->isVisible();
-            auto kb             = Keyboard::instance();
-
-            if (gamepadNavigation) {
-                if (pressed & GCB_GUIDE) {
-                    kb->handleScancode(SCANCODE_LCTRL, true);
-                    kb->handleScancode(SCANCODE_TAB, true);
-                    kb->handleScancode(SCANCODE_TAB, false);
-                    kb->handleScancode(SCANCODE_LCTRL, false);
-                }
-
-                if (overlayVisible) {
-                    if (changed & GCB_DPAD_UP)
-                        kb->handleScancode(SCANCODE_UP, (data.buttons & GCB_DPAD_UP) != 0);
-                    if (changed & GCB_DPAD_DOWN)
-                        kb->handleScancode(SCANCODE_DOWN, (data.buttons & GCB_DPAD_DOWN) != 0);
-                    if (changed & GCB_DPAD_LEFT)
-                        kb->handleScancode(SCANCODE_LEFT, (data.buttons & GCB_DPAD_LEFT) != 0);
-                    if (changed & GCB_DPAD_RIGHT)
-                        kb->handleScancode(SCANCODE_RIGHT, (data.buttons & GCB_DPAD_RIGHT) != 0);
-                    if (changed & GCB_A)
-                        kb->handleScancode(SCANCODE_RETURN, (data.buttons & GCB_A) != 0);
-                    if (changed & GCB_B)
-                        kb->handleScancode(SCANCODE_ESCAPE, (data.buttons & GCB_B) != 0);
-                }
-            }
-        }
-
-        gamePads[idx] = data;
+        kbHcEmu.gamepadReport(idx, data);
     }
 
     bool getGamePadData(unsigned idx, GamePadData &data) override {
-        if (idx > 1)
-            return false;
-
         RecursiveMutexLock lock(mutex);
-        data = gamePads[idx];
-        return true;
+        return kbHcEmu.getGamePadData(idx, data);
     }
 
     void cmdGetMouse() {
@@ -235,26 +206,6 @@ public:
         mouseWheel = 0;
     }
 
-    void cmdGetGameCtrl(uint8_t idx) {
-        // DBGF("GETGAMECTRL");
-
-        auto up = UartProtocol::instance();
-        up->txStart();
-        if (idx > 1) {
-            up->txWrite(ERR_NOT_FOUND);
-            return;
-        }
-        up->txWrite(0);
-        up->txWrite(gamePads[idx].lx);
-        up->txWrite(gamePads[idx].ly);
-        up->txWrite(gamePads[idx].rx);
-        up->txWrite(gamePads[idx].ry);
-        up->txWrite(gamePads[idx].lt);
-        up->txWrite(gamePads[idx].rt);
-        up->txWrite(gamePads[idx].buttons & 0xFF);
-        up->txWrite(gamePads[idx].buttons >> 8);
-    }
-
     int uartCommand(uint8_t cmd, const uint8_t *buf, size_t len) override {
         RecursiveMutexLock lock(mutex);
         switch (cmd) {
@@ -264,7 +215,7 @@ public:
             }
             case ESPCMD_GETGAMECTRL: {
                 if (len == 1) {
-                    cmdGetGameCtrl(buf[0]);
+                    kbHcEmu.cmdGetGameCtrl(buf[0]);
                     return 1;
                 }
                 return 0;
@@ -274,49 +225,7 @@ public:
         return -1;
     }
 
-    std::string getPresetPath(std::string presetType) {
-        auto coreInfo = getCoreInfo();
-        return std::string("/config/esp32/") + coreInfo->name + "/" + presetType;
-    }
-
-    void savePreset(Menu &menu, std::string presetType, const void *buf, size_t size) {
-        std::string presetName;
-        if (menu.editString("Enter preset name", presetName, 32)) {
-            presetName = trim(presetName, " \t\n\r\f\v/\\");
-
-            if (!presetName.empty()) {
-                auto vfs = getSDCardVFS();
-
-                std::string path = getPresetPath(presetType);
-                if (createPath(path)) {
-                    path += "/" + presetName;
-
-                    int fd = vfs->open(FO_WRONLY | FO_CREATE, path);
-                    if (fd >= 0) {
-                        vfs->write(fd, size, buf);
-                        vfs->close(fd);
-                    }
-                }
-            }
-        }
-    }
-    void loadPreset(std::string presetType, void *buf, size_t size) {
-        FileListMenu menu;
-        menu.title    = "Select preset";
-        menu.path     = getPresetPath(presetType);
-        menu.onSelect = [buf, size](const std::string &path) {
-            auto vfs = getSDCardVFS();
-            int  fd  = vfs->open(FO_RDONLY, path);
-            if (fd >= 0) {
-                vfs->read(fd, size, buf);
-                vfs->close(fd);
-            }
-        };
-        menu.show();
-    }
-
     void addMainMenuItems(Menu &menu) override {
-        auto coreInfo = getCoreInfo();
         {
             auto &item   = menu.items.emplace_back(MenuItemType::subMenu, "Reset CPU (CTRL-ESC)");
             item.onEnter = [this]() {
@@ -324,23 +233,9 @@ public:
             };
         }
         menu.items.emplace_back(MenuItemType::separator);
-        {
-            auto &item  = menu.items.emplace_back(MenuItemType::onOff, "Navigate menu using gamepad");
-            item.setter = [this](int newVal) {
-                gamepadNavigation = (newVal != 0);
-
-                nvs_handle_t h;
-                if (nvs_open("settings", NVS_READWRITE, &h) == ESP_OK) {
-                    if (nvs_set_u8(h, "gamepadNav", gamepadNavigation ? 1 : 0) == ESP_OK) {
-                        nvs_commit(h);
-                    }
-                    nvs_close(h);
-                }
-            };
-            item.getter = [this]() { return gamepadNavigation ? 1 : 0; };
-        }
+        kbHcEmu.addMainMenuItems(menu);
         menu.items.emplace_back(MenuItemType::separator);
-        if (coreInfo->flags & FLAG_MOUSE_SUPPORT) {
+        {
             auto &item  = menu.items.emplace_back(MenuItemType::percentage, "Mouse sensitivity");
             item.setter = [this](int newVal) {
                 newVal = std::max(1, std::min(newVal, 8));
