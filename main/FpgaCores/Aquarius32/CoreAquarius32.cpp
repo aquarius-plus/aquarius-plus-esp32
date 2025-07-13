@@ -137,7 +137,7 @@ public:
                     return true;
                 } else if (combinedModifiers == (ModLShift | ModLCtrl)) {
                     // CTRL-SHIFT-ESCAPE -> reset ESP32 (somewhat equivalent to power cycle)
-                    esp_restart();
+                    SystemRestart();
                     return true;
                 }
             }

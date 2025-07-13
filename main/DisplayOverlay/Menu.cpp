@@ -272,6 +272,7 @@ void Menu::drawMessage(const char *msg) {
     ovl->drawStr(x + 1, y + 1, DisplayOverlay::makeAttr(colFg, colBg), msg);
 
     ovl->render();
+    ovl->setVisible(true);
 }
 
 bool Menu::editString(const std::string &title, std::string &str, int maxLen, bool isPassword) {
@@ -369,4 +370,9 @@ bool Menu::editString(const std::string &title, std::string &str, int maxLen, bo
             }
         }
     }
+}
+
+void SystemRestart() {
+    Menu::drawMessage("Restarting system...");
+    esp_restart();
 }

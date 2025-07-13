@@ -166,9 +166,9 @@ void GitHubUpdateMenu::doUpdate(const char *tag) {
     } else {
         esp_err_t ota_finish_err = esp_https_ota_finish(https_ota_handle);
         if (err == ESP_OK && ota_finish_err == ESP_OK) {
-            drawMessage("Update successful. Rebooting.");
+            drawMessage("Update successful.");
             vTaskDelay(pdMS_TO_TICKS(2000));
-            esp_restart();
+            SystemRestart();
 
         } else {
             if (ota_finish_err == ESP_ERR_OTA_VALIDATE_FAILED) {

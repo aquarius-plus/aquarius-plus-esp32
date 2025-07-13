@@ -111,9 +111,9 @@ void SdCardUpdateMenu::doUpdate() {
         goto done;
     }
 
-    drawMessage("Update successful. Rebooting.");
+    drawMessage("Update successful.");
     vTaskDelay(pdMS_TO_TICKS(2000));
-    esp_restart();
+    SystemRestart();
 
 done:
     if (fd >= 0)

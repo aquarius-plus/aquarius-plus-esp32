@@ -71,10 +71,7 @@ public:
 
         {
             auto &item   = items.emplace_back(MenuItemType::subMenu, "Restart ESP (CTRL-SHIFT-ESC)");
-            item.onEnter = [&]() {
-                drawMessage("Restarting ESP...");
-                esp_restart();
-            };
+            item.onEnter = [&]() { SystemRestart(); };
         }
         {
             auto &item   = items.emplace_back(MenuItemType::subMenu, "ESP settings");

@@ -106,8 +106,7 @@ public:
                     drawMessage("Erasing settings...");
                     ESP_ERROR_CHECK(nvs_flash_erase());
                     ESP_ERROR_CHECK(nvs_flash_init());
-                    drawMessage("Restarting system...");
-                    esp_restart();
+                    SystemRestart();
                 }
             };
         }

@@ -273,11 +273,7 @@ public:
                     return true;
                 } else if (combinedModifiers == (ModLShift | ModLCtrl)) {
                     // CTRL-SHIFT-ESCAPE -> reset ESP32 (somewhat equivalent to power cycle)
-#ifdef CONFIG_MACHINE_TYPE_AQPLUS
-                    aqpAqcuireBus();
-                    resetCore();
-#endif
-                    esp_restart();
+                    SystemRestart();
                     return true;
                 }
             }
