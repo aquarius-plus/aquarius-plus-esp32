@@ -3,6 +3,7 @@
 
 #include "DisplayOverlay.h"
 #include "EspSettingsMenu.h"
+#include "LoadCoreMenu.h"
 #include "VersionMenu.h"
 
 #ifdef CONFIG_MACHINE_TYPE_MORPHBOOK
@@ -69,21 +70,10 @@ public:
             items.emplace_back(MenuItemType::separator);
         }
 
-        {
-            auto &item   = items.emplace_back(MenuItemType::subMenu, "Restart ESP (CTRL-SHIFT-ESC)");
-            item.onEnter = [&]() { SystemRestart(); };
-        }
-        {
-            auto &item   = items.emplace_back(MenuItemType::subMenu, "ESP settings");
-            item.onEnter = []() { espSettingsMenu.show(); };
-        }
-        {
-            auto &item   = items.emplace_back(MenuItemType::subMenu, "Version");
-            item.onEnter = []() {
-                VersionMenu subMenu;
-                subMenu.show();
-            };
-        }
+        items.emplace_back(MenuItemType::subMenu, "Change active core").onEnter           = []() { LoadCoreMenu().show(); };
+        items.emplace_back(MenuItemType::subMenu, "Restart ESP (CTRL-SHIFT-ESC)").onEnter = []() { SystemRestart(); };
+        items.emplace_back(MenuItemType::subMenu, "ESP settings").onEnter                 = []() { espSettingsMenu.show(); };
+        items.emplace_back(MenuItemType::subMenu, "Version").onEnter                      = []() { VersionMenu().show(); };
     }
 
     bool onTick() override {

@@ -47,6 +47,47 @@ std::shared_ptr<FpgaCore> FpgaCore::load(const void *data, size_t length) {
     return currentCore;
 }
 
+std::shared_ptr<FpgaCore> FpgaCore::loadCore(const char *path) {
+    auto        vc = VFSContext::getDefault();
+    struct stat st;
+    int         result = vc->stat(path, &st);
+    if (result < 0 || (st.st_mode & S_IFREG) == 0) {
+        return nullptr;
+    }
+
+    void *buf = malloc(st.st_size);
+    if (buf == nullptr) {
+        printf("Insufficient memory to allocate buffer for bitstream!\n");
+        return nullptr;
+    }
+
+    int fd = vc->open(FO_RDONLY, path);
+    if (fd < 0) {
+        return nullptr;
+    }
+    vc->read(fd, st.st_size, buf);
+    vc->close(fd);
+
+    printf("Loading bitstream: %s (%u bytes)\n", path, (unsigned)st.st_size);
+
+#ifdef EMULATOR
+    auto newCore = FpgaCore::load(path, st.st_size);
+#else
+    auto newCore = FpgaCore::load(buf, st.st_size);
+#endif
+    if (!newCore) {
+        printf("Failed! Loading default bitstream\n");
+
+        // Restore Aq+ firmware
+        newCore = FpgaCore::loadAqPlus();
+    }
+    free(buf);
+
+    vc->closeAll();
+
+    return newCore;
+}
+
 std::shared_ptr<FpgaCore> FpgaCore::loadAqPlus() {
     const void *data   = "aqplus.core";
     size_t      length = 0;

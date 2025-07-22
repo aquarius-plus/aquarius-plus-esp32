@@ -794,39 +794,10 @@ public:
             txWrite(ERR_PARAM);
             return;
         }
-
-        void *buf = malloc(st.st_size);
-        if (buf == nullptr) {
-            printf("Insufficient memory to allocate buffer for bitstream!\n");
+        if (FpgaCore::loadCore(pathArg) == nullptr) {
             txWrite(ERR_OTHER);
             return;
         }
-
-        int fd = vc->open(FO_RDONLY, pathArg);
-        if (fd < 0) {
-            txWrite(fd);
-        } else {
-            vc->read(fd, st.st_size, buf);
-            vc->close(fd);
-            txWrite(0);
-
-            printf("Loading bitstream: %s (%u bytes)\n", pathArg, (unsigned)st.st_size);
-
-#ifdef EMULATOR
-            auto newCore = FpgaCore::load(pathArg, st.st_size);
-#else
-            auto newCore = FpgaCore::load(buf, st.st_size);
-#endif
-            if (!newCore) {
-                printf("Failed! Loading default bitstream\n");
-
-                // Restore Aq+ firmware
-                FpgaCore::loadAqPlus();
-            }
-            cmdCloseAll();
-        }
-
-        free(buf);
     }
 };
 

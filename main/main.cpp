@@ -19,6 +19,23 @@ static const char *TAG = "main";
 
 extern "C" void app_main(void);
 
+void loadStartupCore() {
+    bool         coreOk = false;
+    nvs_handle_t h;
+    if (nvs_open("settings", NVS_READONLY, &h) == ESP_OK) {
+        char   corePath[128];
+        size_t len = sizeof(corePath);
+        if (nvs_get_str(h, "core", corePath, &len) == ESP_OK) {
+            if (FpgaCore::loadCore(corePath))
+                coreOk = true;
+        }
+        nvs_close(h);
+    }
+
+    if (!coreOk)
+        FpgaCore::loadAqPlus();
+}
+
 void app_main(void) {
     ESP_LOGI(TAG, "Aquarius+ ESP32 firmware");
 
@@ -85,8 +102,7 @@ void app_main(void) {
 #endif
 
     FPGA::instance()->init();
-    FpgaCore::loadAqPlus();
-
+    loadStartupCore();
     getDisplayOverlay()->init();
 
 #if 0

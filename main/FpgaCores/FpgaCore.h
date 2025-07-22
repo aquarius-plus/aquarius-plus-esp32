@@ -31,6 +31,7 @@ public:
 
     static std::shared_ptr<FpgaCore> load(const void *data = nullptr, size_t length = 0);
     static std::shared_ptr<FpgaCore> loadAqPlus();
+    static std::shared_ptr<FpgaCore> loadCore(const char *path);
     static void                      unload();
     static std::shared_ptr<FpgaCore> get();
     static const CoreInfo           *getCoreInfo();
