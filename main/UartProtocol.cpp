@@ -15,7 +15,7 @@
 static const char *TAG = "UartProtocol";
 
 #define UART_NUM (UART_NUM_1)
-#define BUF_SIZE (1024)
+#define BUF_SIZE (4096)
 #endif
 
 #if 0
@@ -84,7 +84,7 @@ public:
         getTcpVFS()->init();
 
 #ifndef EMULATOR
-        if (xTaskCreate(_uartEventTask, "uartEvent", 6144, this, 1, nullptr) != pdPASS) {
+        if (xTaskCreate(_uartEventTask, "uartEvent", 8192, this, 1, nullptr) != pdPASS) {
             ESP_LOGE(TAG, "Error creating uartEvent task");
         }
 #endif

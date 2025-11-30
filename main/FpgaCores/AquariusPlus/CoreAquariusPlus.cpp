@@ -25,6 +25,7 @@ enum {
     FLAG_VIDEO_TIMING  = (1 << 2),
     FLAG_AQPLUS        = (1 << 3),
     FLAG_FORCE_TURBO   = (1 << 4),
+    FLAG_ALT_BAUDRATE  = (1 << 5),
 };
 
 class CoreAquariusPlus : public FpgaCore {
@@ -53,11 +54,16 @@ public:
         mutex            = xSemaphoreCreateRecursiveMutex();
         bypassStartTimer = xTimerCreate("", pdMS_TO_TICKS(CONFIG_BYPASS_START_TIME_MS), pdFALSE, this, _onBypassStartTimer);
 
-        kbHcEmu.coreName         = getCoreInfo()->name;
+        auto coreInfo            = getCoreInfo();
+        kbHcEmu.coreName         = coreInfo->name;
         kbHcEmu.updateHandCtrl   = [this](uint8_t hctrl1, uint8_t hctrl2) { aqpUpdateHandCtrl(hctrl1, hctrl2); };
         kbHcEmu.updateKeybMatrix = [this](uint64_t val) { aqpUpdateKeybMatrix(val); };
 
-        UartProtocol::instance()->setBaudrate(3579545);
+        if (coreInfo->flags & FLAG_ALT_BAUDRATE)
+            UartProtocol::instance()->setBaudrate(25175000 / 6);
+        else
+            UartProtocol::instance()->setBaudrate(28636360 / 8);
+
         loadSettings();
         Keyboard::instance()->reset(true);
     }
@@ -526,7 +532,7 @@ public:
         kbHcEmu.addMainMenuItems(menu);
         menu.items.emplace_back(MenuItemType::separator);
 #ifdef CONFIG_MACHINE_TYPE_AQPLUS
-        if (coreInfo->flags & FLAG_AQPLUS) {
+        if ((coreInfo->flags & FLAG_AQPLUS) && coreInfo->versionMajor < 2) {
             {
                 auto &item   = menu.items.emplace_back(MenuItemType::subMenu, "Screenshot (text)");
                 item.onEnter = [this, &menu]() { takeScreenshot(menu); };
