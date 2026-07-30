@@ -1,6 +1,6 @@
 dependencies:
   espressif/mdns:
-    component_hash: 3ec0af5f6bce310512e90f482388d21cc7c0e99668172d2f895356165fc6f7c5
+    component_hash: e81ca7a7f53ea34e78274df054da692c272e1315572876b237b1748e267c013b
     dependencies:
     - name: idf
       require: private
@@ -8,14 +8,32 @@ dependencies:
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 1.8.2
+    version: 1.11.3
+  espressif/usb:
+    component_hash: 6c2cff118141dbbca181d0d27d71801fdddfc78f7ac03ae43f6e5a8cbd89cb99
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.5.3'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    targets:
+    - esp32s2
+    - esp32s3
+    - esp32s31
+    - esp32p4
+    - esp32h4
+    - linux
+    version: 1.5.0
   idf:
     source:
       type: idf
-    version: 5.5.1
+    version: 6.0.2
 direct_dependencies:
 - espressif/mdns
+- espressif/usb
 - idf
-manifest_hash: e2496bff37283a7d3c5277389d4fe30e84b979ade593ecbc12a36ff0891ccc65
+manifest_hash: 18c607de27f8c399d420bd5ea2640ec7bc4dc1705c9cc1abc7b887bb61f7e4eb
 target: esp32s3
-version: 2.0.0
+version: 3.0.0

@@ -6,15 +6,15 @@
 #include <netdb.h>
 #endif
 
-#define MAX_FDS (10)
+#define TCP_MAX_FDS (10)
 
 class TcpVFS : public VFS {
 public:
-    bool inUse[MAX_FDS]   = {0};
+    bool inUse[TCP_MAX_FDS]   = {0};
 #ifndef _WIN32
-    int  sockets[MAX_FDS] = {0};
+    int  sockets[TCP_MAX_FDS] = {0};
 #else
-    SOCKET sockets[MAX_FDS] = {0};
+    SOCKET sockets[TCP_MAX_FDS] = {0};
 #endif
 
     TcpVFS() {
@@ -60,7 +60,7 @@ public:
 
         // Find free file descriptor
         int fd = -1;
-        for (int i = 0; i < MAX_FDS; i++) {
+        for (int i = 0; i < TCP_MAX_FDS; i++) {
             if (!inUse[i]) {
                 fd = i;
                 break;
@@ -147,7 +147,7 @@ public:
     int read(int fd, size_t size, void *buf) override {
         // printf("TCP read: %d  size: %u\n", fd, (unsigned)size);
 
-        if (fd >= MAX_FDS || !inUse[fd])
+        if (fd >= TCP_MAX_FDS || !inUse[fd])
             return ERR_PARAM;
         auto sock = sockets[fd];
 
@@ -188,7 +188,7 @@ public:
     int write(int fd, size_t size, const void *buf) override {
         // printf("TCP write: %d  size: %u\n", fd, (unsigned)size);
 
-        if (fd >= MAX_FDS || !inUse[fd])
+        if (fd >= TCP_MAX_FDS || !inUse[fd])
             return ERR_PARAM;
         auto sock = sockets[fd];
 
@@ -220,7 +220,7 @@ public:
     int close(int fd) override {
         printf("TCP close: %d\n", fd);
 
-        if (fd >= MAX_FDS || !inUse[fd])
+        if (fd >= TCP_MAX_FDS || !inUse[fd])
             return ERR_PARAM;
 #ifndef _WIN32
         ::close(sockets[fd]);

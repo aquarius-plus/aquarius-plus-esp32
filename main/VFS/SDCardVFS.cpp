@@ -16,7 +16,7 @@
 
 static const char *TAG = "SDCardVFS";
 
-#define MAX_FDS (12)
+#define SD_MAX_FDS (12)
 
 typedef union {
     struct {
@@ -46,7 +46,7 @@ public:
     sdmmc_slot_config_t slotConfig;
 #endif
     void *fatfs        = nullptr;
-    FIL  *fds[MAX_FDS] = {0};
+    FIL  *fds[SD_MAX_FDS] = {0};
 
     SDCardVFS() {
     }
@@ -167,7 +167,7 @@ public:
 
         // Find free file descriptor
         int fd = -1;
-        for (int i = 0; i < MAX_FDS; i++) {
+        for (int i = 0; i < SD_MAX_FDS; i++) {
             if (fds[i] == nullptr) {
                 fd = i;
                 break;
@@ -189,7 +189,7 @@ public:
     }
 
     int close(int fd) override {
-        if (fd >= MAX_FDS || fds[fd] == nullptr)
+        if (fd >= SD_MAX_FDS || fds[fd] == nullptr)
             return ERR_PARAM;
         auto res = f_close(fds[fd]);
 
@@ -199,7 +199,7 @@ public:
     }
 
     int read(int fd, size_t size, void *buf) override {
-        if (fd >= MAX_FDS || fds[fd] == nullptr)
+        if (fd >= SD_MAX_FDS || fds[fd] == nullptr)
             return ERR_PARAM;
 
         UINT br;
@@ -210,7 +210,7 @@ public:
     }
 
     int readline(int fd, size_t size, void *buf) override {
-        if (fd >= MAX_FDS || fds[fd] == nullptr)
+        if (fd >= SD_MAX_FDS || fds[fd] == nullptr)
             return ERR_PARAM;
 
         char *p = (char *)buf;
@@ -227,7 +227,7 @@ public:
     }
 
     int write(int fd, size_t size, const void *buf) override {
-        if (fd >= MAX_FDS || fds[fd] == nullptr)
+        if (fd >= SD_MAX_FDS || fds[fd] == nullptr)
             return ERR_PARAM;
 
         UINT bw;
@@ -238,7 +238,7 @@ public:
     }
 
     int seek(int fd, size_t offset) override {
-        if (fd >= MAX_FDS || fds[fd] == nullptr)
+        if (fd >= SD_MAX_FDS || fds[fd] == nullptr)
             return ERR_PARAM;
 
         auto res = f_lseek(fds[fd], offset);
@@ -246,7 +246,7 @@ public:
     }
 
     int lseek(int fd, int offset, int whence) {
-        if (fd >= MAX_FDS || fds[fd] == nullptr || whence < 0 || whence > 2)
+        if (fd >= SD_MAX_FDS || fds[fd] == nullptr || whence < 0 || whence > 2)
             return ERR_PARAM;
 
         if (whence == 1) // SEEK_CUR
@@ -265,7 +265,7 @@ public:
     }
 
     int tell(int fd) override {
-        if (fd >= MAX_FDS || fds[fd] == nullptr)
+        if (fd >= SD_MAX_FDS || fds[fd] == nullptr)
             return ERR_PARAM;
         return f_tell(fds[fd]);
     }

@@ -470,8 +470,6 @@ public:
             case WIFI_AUTH_WPA3_PSK:
             case WIFI_AUTH_WPA2_WPA3_PSK:
             case WIFI_AUTH_WPA3_ENT_192:
-            case WIFI_AUTH_WPA3_EXT_PSK:
-            case WIFI_AUTH_WPA3_EXT_PSK_MIXED_MODE:
             case WIFI_AUTH_DPP:
                 wai.authMode = '3';
                 break;
